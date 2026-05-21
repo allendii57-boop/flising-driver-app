@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -284,6 +285,25 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       });
       _startGhostDriver();
       _listenForCancellations(rideId);
+    }
+  }
+
+  Future<void> _navigateToPickup(String rideId) async {
+    final snap = await FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref('rides/$rideId').get();
+    if (snap.value == null) return;
+    final data = snap.value as Map<dynamic, dynamic>;
+    final lat = data['pickupLat'];
+    final lng = data['pickupLng'];
+    if (lat == null || lng == null) return;
+    final url = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      final fallback = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+      await launchUrl(fallback, mode: LaunchMode.externalApplication);
     }
   }
 
