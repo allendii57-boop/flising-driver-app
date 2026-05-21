@@ -274,6 +274,12 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     final double? pickupLat = (rideData['pickupLat'] as num?)?.toDouble();
     final double? pickupLng = (rideData['pickupLng'] as num?)?.toDouble();
     if (pickupLat != null && pickupLng != null && mounted) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => LiveMap(destination: LatLng(pickupLat, pickupLng), destinationLabel: 'Pickup: $pickup')));
+    }
+
+    final double? pickupLat = (rideData['pickupLat'] as num?)?.toDouble();
+    final double? pickupLng = (rideData['pickupLng'] as num?)?.toDouble();
+    if (pickupLat != null && pickupLng != null && mounted) {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => LiveMap(
           destination: LatLng(pickupLat, pickupLng),
