@@ -59,7 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         databaseURL:
             'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
       ).ref('drivers/${userCredential.user!.uid}/profile').set({
-        'fullName': name,
+        'fullName': name, // must match license
         'phoneNumber': phone,
         'email': email,
         'isVerified': false,
@@ -76,7 +76,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
       _showSnack(
-        'Account created! Check your email to verify before logging in.',
+        'Account created! Check your email for a verification link. Redirecting to login...',
         isError: false,
       );
 
@@ -108,7 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildField(TextEditingController ctrl, String label, IconData icon,
-      {TextInputType type = TextInputType.text}) {
+      {TextInputType type = TextInputType.text, String? helperText}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: TextFormField(
@@ -121,7 +121,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           prefixIcon: Icon(icon, color: flisingOrange),
           enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.white30)),
-          focusedBorder: UnderlineInputBorder(
+          helperText: helperText,
+            helperStyle: const TextStyle(color: Colors.orange, fontSize: 11),
+            focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: flisingOrange)),
         ),
       ),
@@ -185,7 +187,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 enabledBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Colors.white30)),
-                focusedBorder: UnderlineInputBorder(
+                helperText: helperText,
+            helperStyle: const TextStyle(color: Colors.orange, fontSize: 11),
+            focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: flisingOrange)),
               ),
             ),

@@ -39,9 +39,13 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   final Color offlineRed = const Color(0xFFD32F2F);
 
   @override
+  bool _isVerified = false;
+
+  @override
   void initState() {
     super.initState();
     _listenForRideRequests();
+    _loadVerificationStatus();
   }
 
   @override
@@ -50,6 +54,16 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     _activeRideListener?.cancel();
     _movementTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadVerificationStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final snap = await FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref('drivers/${user.uid}/profile/isVerified').get();
+    if (mounted) setState(() => _isVerified = (snap.value as bool?) ?? false);
   }
 
   void _startGhostDriver() {
@@ -421,7 +435,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: ElevatedButton(
-                    onPressed: _isToggleLoading ? null : _toggleStatus,
+                    onPressed: _isToggleLoading || !_isVerified ? null : _toggleStatus,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           _isOnline ? onlineGreen : offlineRed,
