@@ -58,7 +58,7 @@ class _DriverProfileState extends State<DriverProfile> {
         final data = event.snapshot.value as Map<dynamic, dynamic>;
         setState(() {
           _displayName = data['fullName'] ?? currentUser.displayName ?? "Driver";
-          _profilePhotoPath = data['photoUrl'] ?? ""; 
+          _profilePhotoPath = data['profileImageUrl'] ?? ""; 
         });
       }
     });
@@ -131,9 +131,7 @@ class _DriverProfileState extends State<DriverProfile> {
                   // FIXED: Checks if it's Web or Mobile before loading the image!
                   image: hasProfilePhoto 
                       ? DecorationImage(
-                          image: kIsWeb 
-                            ? NetworkImage(_profilePhotoPath) 
-                            : FileImage(File(_profilePhotoPath)) as ImageProvider, 
+                          image: NetworkImage(_profilePhotoPath),
                           fit: BoxFit.cover) 
                       : null,
                 ),
