@@ -11,27 +11,15 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # UI & Map Engine
-  flutter_map: any
-  latlong2: any
-
-  # GPS & Location Services
+  google_maps_flutter: ^2.9.0
   geolocator: any
-
-  # Firebase Cloud Backend
   firebase_core: any
   firebase_auth: any
   firebase_database: any
   firebase_storage: any
-
-  # Camera & Gallery Access for Driver Docs
-  image_picker: any
-
-  # External Link Launcher (WhatsApp Support)
-  url_launcher: any
-  cloud_firestore: ^6.3.0
   firebase_analytics: ^12.3.0
-  flutter_clean: ^0.0.1
+  image_picker: any
+  url_launcher: any
 
 dev_dependencies:
   flutter_test:
@@ -41,6 +29,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Premium Assets Folder (Loads everything inside automatically!)
   assets:
-    - assets/images/
+    - assets/images/flising_logo.png
