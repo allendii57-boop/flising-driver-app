@@ -69,7 +69,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> _pickImage(String slot) async {
-    if (_isPending || _isVerified) return;
+    if (_isPending || !_isVerified) return;
     try {
       final f = await _picker.pickImage(
           source: ImageSource.gallery, imageQuality: 75);
