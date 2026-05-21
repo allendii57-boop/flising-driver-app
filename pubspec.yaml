@@ -13,6 +13,7 @@ dependencies:
 
   google_maps_flutter: ^2.9.0
   geolocator: any
+  http: any
   firebase_core: any
   firebase_auth: any
   firebase_database: any

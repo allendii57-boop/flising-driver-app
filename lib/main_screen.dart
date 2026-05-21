@@ -129,7 +129,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
             } else {
               timer.cancel();
               _handleRideAction(
-                  rideId, 'IGNORED', dialogContext, pickup, dropoff);
+                  rideId, 'IGNORED', dialogContext, pickup, dropoff, rideData);
             }
           });
 
@@ -203,7 +203,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 onPressed: () {
                   countdownTimer?.cancel();
                   _handleRideAction(
-                      rideId, 'IGNORED', dialogContext, pickup, dropoff);
+                      rideId, 'IGNORED', dialogContext, pickup, dropoff, rideData);
                 },
                 style: OutlinedButton.styleFrom(
                     side: BorderSide(color: offlineRed),
@@ -218,7 +218,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 onPressed: () {
                   countdownTimer?.cancel();
                   _handleRideAction(
-                      rideId, 'ACCEPTED', dialogContext, pickup, dropoff);
+                      rideId, 'ACCEPTED', dialogContext, pickup, dropoff, rideData);
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: flisingOrange,
@@ -240,7 +240,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   }
 
   void _handleRideAction(String rideId, String action,
-      BuildContext dialogContext, String pickup, String dropoff) async {
+      BuildContext dialogContext, String pickup, String dropoff, dynamic rideData) async {
     Navigator.pop(dialogContext);
 
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -270,6 +270,17 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       });
       _startGhostDriver();
       _listenForCancellations(rideId);
+
+    final double? pickupLat = (rideData['pickupLat'] as num?)?.toDouble();
+    final double? pickupLng = (rideData['pickupLng'] as num?)?.toDouble();
+    if (pickupLat != null && pickupLng != null && mounted) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => LiveMap(
+          destination: LatLng(pickupLat, pickupLng),
+          destinationLabel: 'Pickup: $pickup',
+        ),
+      ));
+    }
     }
   }
 
