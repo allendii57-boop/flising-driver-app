@@ -121,7 +121,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           prefixIcon: Icon(icon, color: flisingOrange),
           enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.white30)),
-          helperText: helperText,
             helperStyle: const TextStyle(color: Colors.orange, fontSize: 11),
             focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: flisingOrange)),
@@ -160,7 +159,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(color: Colors.white70, fontSize: 14)),
             const SizedBox(height: 40),
 
-            _buildField(_nameController, 'Full Name', Icons.person_outline,
+            _buildField(_nameController, 'Full Name', Icons.person_outline, helperText: 'Use the same name on your driver's license',
                 type: TextInputType.name),
             _buildField(_phoneController, 'Phone Number', Icons.phone_android,
                 type: TextInputType.phone),
@@ -187,7 +186,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 enabledBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Colors.white30)),
-                helperText: helperText,
             helperStyle: const TextStyle(color: Colors.orange, fontSize: 11),
             focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: flisingOrange)),
