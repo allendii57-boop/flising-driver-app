@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-
-// Your exact file name
-import 'main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,18 +11,16 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // 1. Text Controllers
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
-  bool _isPasswordVisible = false;
-  bool _isLoading = false; // THE MAGIC SPINNER SWITCH!
 
-  // Premium Theme Colors
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+
   final Color flisingOrange = const Color(0xFFE9692C);
-  final Color darkSurface = const Color(0xFF1C1C1E);
 
   @override
   void dispose() {
@@ -36,108 +31,98 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // 2. The Firebase Registration Brain
-  void _handleRegister() async {
-    final String name = _nameController.text.trim();
-    final String phone = _phoneController.text.trim();
-    final String email = _emailController.text.trim();
-    final String password = _passwordController.text.trim();
+  Future<void> _register() async {
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    // Safety check: Make sure they didn't leave anything blank!
     if (name.isEmpty || phone.isEmpty || email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all fields!', style: TextStyle(color: Colors.white)),
-          backgroundColor: Color(0xFFD32F2F),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showSnack('Please fill in all fields.', isError: true);
       return;
     }
 
-    setState(() { _isLoading = true; });
+    setState(() => _isLoading = true);
+
+    UserCredential? userCredential;
 
     try {
-      // A. Create the key in Firebase Authentication
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // 1. Create Auth account
+      userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // B. Save their profile info to your exact Asia server!
-      DatabaseReference driverRef = FirebaseDatabase.instanceFor(
+      // 2. Save profile to database BEFORE sending verification
+      await FirebaseDatabase.instanceFor(
         app: Firebase.app(),
-        databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app'
-      ).ref().child('drivers/${userCredential.user!.uid}/profile');
-
-      await driverRef.set({
-        "fullName": name,
-        "phoneNumber": phone,
-        "email": email,
-        "registeredAt": ServerValue.timestamp,
+        databaseURL:
+            'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      ).ref('drivers/${userCredential.user!.uid}/profile').set({
+        'fullName': name,
+        'phoneNumber': phone,
+        'email': email,
+        'isVerified': false,
+        'pendingApproval': false,
+        'isOnline': false,
+        'registeredAt': ServerValue.timestamp,
       });
 
+      // 3. Send verification email
+      await userCredential.user?.sendEmailVerification();
+
+      // 4. Sign out — broken sessions never enter the app
+      await _auth.signOut();
+
       if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registration Successful! Welcome to Flising.', style: TextStyle(color: Colors.white)),
-          backgroundColor: Color(0xFF4CAF50),
-          behavior: SnackBarBehavior.floating,
-        ),
+      _showSnack(
+        'Account created! Check your email to verify before logging in.',
+        isError: false,
       );
 
-      // C. Smash through to the Dashboard!
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DriverMainScreen()),
-      );
-
+      await Future.delayed(const Duration(seconds: 3));
+      if (mounted) Navigator.pushReplacementNamed(context, '/login');
     } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      String errorMessage = "Registration Failed: ${e.message}";
-      if (e.code == 'weak-password') errorMessage = 'The password provided is too weak.';
-      if (e.code == 'email-already-in-use') errorMessage = 'An account already exists for that email.';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage, style: const TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFFD32F2F),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('General Error: $e', style: const TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFFD32F2F),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() { _isLoading = false; });
+      // If DB write failed after auth was created, delete the auth account
+      if (userCredential != null) {
+        await userCredential.user?.delete();
       }
+      if (mounted) _showSnack(e.message ?? 'Registration failed.', isError: true);
+    } catch (e) {
+      if (userCredential != null) {
+        await userCredential.user?.delete();
+      }
+      if (mounted) _showSnack('Error: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // A tiny helper tool to keep the code clean and premium!
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, TextInputType type) {
+  void _showSnack(String msg, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(color: Colors.white)),
+      backgroundColor: isError ? const Color(0xFFD32F2F) : const Color(0xFF4CAF50),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 4),
+    ));
+  }
+
+  Widget _buildField(TextEditingController ctrl, String label, IconData icon,
+      {TextInputType type = TextInputType.text}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.only(bottom: 20),
       child: TextFormField(
-        controller: controller,
+        controller: ctrl,
         keyboardType: type,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white54),
+          labelStyle: const TextStyle(color: Colors.white70),
           prefixIcon: Icon(icon, color: flisingOrange),
-          filled: true,
-          fillColor: darkSurface,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: flisingOrange, width: 2)),
+          enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white30)),
+          focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: flisingOrange)),
         ),
       ),
     );
@@ -146,91 +131,86 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Premium Dark theme
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // --- BACK BUTTON ---
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Column(
+          children: [
+            Image.asset(
+              'assets/images/flising_logo.png',
+              height: 60,
+              errorBuilder: (c, e, s) =>
+                  Icon(Icons.local_taxi, color: flisingOrange, size: 60),
+            ),
+            const SizedBox(height: 20),
+            const Text('Create Driver Account',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Join the Flising Driver Network.',
+                style: TextStyle(color: Colors.white70, fontSize: 14)),
+            const SizedBox(height: 40),
+
+            _buildField(_nameController, 'Full Name', Icons.person_outline,
+                type: TextInputType.name),
+            _buildField(_phoneController, 'Phone Number', Icons.phone_android,
+                type: TextInputType.phone),
+            _buildField(_emailController, 'Email Address', Icons.email_outlined,
+                type: TextInputType.emailAddress),
+
+            // Password field with toggle
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Password (Min. 6 characters)',
+                labelStyle: const TextStyle(color: Colors.white70),
+                prefixIcon: Icon(Icons.lock_outline, color: flisingOrange),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.white54),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
+                enabledBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white30)),
+                focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: flisingOrange)),
               ),
-              const SizedBox(height: 10),
+            ),
+            const SizedBox(height: 50),
 
-              // --- HEADER ---
-              Text(
-                'Create Account',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: flisingOrange, letterSpacing: 1.5),
-                textAlign: TextAlign.center,
+            ElevatedButton(
+              onPressed: _isLoading ? null : _register,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: flisingOrange,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Join Flising and start earning.',
-                style: TextStyle(fontSize: 16, color: Colors.white54),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-
-              // --- FULL NAME ---
-              _buildTextField(_nameController, 'Full Name', Icons.person_outline, TextInputType.name),
-
-              // --- PHONE NUMBER ---
-              _buildTextField(_phoneController, 'Phone Number', Icons.phone_android, TextInputType.phone),
-
-              // --- EMAIL ---
-              _buildTextField(_emailController, 'Email Address', Icons.email_outlined, TextInputType.emailAddress),
-
-              // --- PASSWORD ---
-              TextFormField(
-                controller: _passwordController,
-                obscureText: !_isPasswordVisible,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: Icon(Icons.lock_outline, color: flisingOrange),
-                  suffixIcon: IconButton(
-                    icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white54),
-                    onPressed: () {
-                      setState(() { _isPasswordVisible = !_isPasswordVisible; });
-                    },
-                  ),
-                  filled: true,
-                  fillColor: darkSurface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: flisingOrange, width: 2)),
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              // --- REGISTER BUTTON ---
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleRegister,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: flisingOrange,
-                  disabledBackgroundColor: flisingOrange.withOpacity(0.5),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 5,
-                ),
-                child: _isLoading
-                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                    : const Text(
-                        'REGISTER',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5),
-                      ),
-              ),
-            ],
-          ),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('SIGN UP',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
   }
 }
- 
