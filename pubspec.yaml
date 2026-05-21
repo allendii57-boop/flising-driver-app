@@ -43,4 +43,4 @@ flutter:
 
   # Premium Assets Folder (Loads everything inside automatically!)
   assets:
-    - assets/images/
+    - assets/images/flising_logo.png
