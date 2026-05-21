@@ -57,14 +57,34 @@ class EarningsTracker extends StatelessWidget {
                                 String fareStr = value['fare']?.toString() ?? "K 0.00";
                                 fareStr = fareStr.replaceAll(RegExp(r'[^0-9.]'), '');
                                 double fareAmount = double.tryParse(fareStr) ?? 0.0;
-                                weekGross += fareAmount;
+                                // BEFORE (lines 60-67):
+weekGross += fareAmount;
 
-                                if (value['timestamp'] != null) {
-                                  DateTime rideDate = DateTime.fromMillisecondsSinceEpoch(value['timestamp']);
-                                  if (rideDate.year == now.year && rideDate.month == now.month && rideDate.day == now.day) {
-                                    todayGross += fareAmount;
-                                  }
-                                }
+if (value['timestamp'] != null) {
+  DateTime rideDate = DateTime.fromMillisecondsSinceEpoch(value['timestamp']);
+  if (rideDate.year == now.year && rideDate.month == now.month && rideDate.day == now.day) {
+    todayGross += fareAmount;
+  }
+}
+
+// AFTER:
+if (value['timestamp'] != null) {
+  DateTime rideDate = DateTime.fromMillisecondsSinceEpoch(value['timestamp']);
+
+  // Today check
+  if (rideDate.year == now.year &&
+      rideDate.month == now.month &&
+      rideDate.day == now.day) {
+    todayGross += fareAmount;
+  }
+
+  // This week check
+  DateTime startOfWeek = now.subtract(Duration(days: now.weekday % 7));
+  DateTime weekStart = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+  if (rideDate.isAfter(weekStart)) {
+    weekGross += fareAmount;
+  }
+}
                               }
                             });
                           }
