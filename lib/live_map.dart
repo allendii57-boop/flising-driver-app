@@ -28,7 +28,7 @@ class _LiveMapState extends State<LiveMap> {
   final Color darkSurface = const Color(0xFF1C1C1E);
 
   // YOUR GOOGLE MAPS API KEY
-  static const String _apiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
+  static const String _apiKey = 'AIzaSyCLZjxEEPtXycS2meKlSlhyk_x2gn9daBo';
 
   @override
   void initState() {
