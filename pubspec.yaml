@@ -1,0 +1,46 @@
+name: flising_driver
+description: Premium ride hailing platform for drivers.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & Map Engine
+  flutter_map: any
+  latlong2: any
+
+  # GPS & Location Services
+  geolocator: any
+
+  # Firebase Cloud Backend
+  firebase_core: any
+  firebase_auth: any
+  firebase_database: any
+  firebase_storage: any
+
+  # Camera & Gallery Access for Driver Docs
+  image_picker: any
+
+  # External Link Launcher (WhatsApp Support)
+  url_launcher: any
+  cloud_firestore: ^6.3.0
+  firebase_analytics: ^12.3.0
+  flutter_clean: ^0.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: any
+
+flutter:
+  uses-material-design: true
+
+  # Premium Assets Folder (Loads everything inside automatically!)
+  assets:
+    - assets/images/

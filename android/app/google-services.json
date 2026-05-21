@@ -1,0 +1,69 @@
+{
+  "project_info": {
+    "project_number": "305111246630",
+    "firebase_url": "https://flising-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "flising",
+    "storage_bucket": "flising.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:305111246630:android:e7e148d6a714b1a61d43e7",
+        "android_client_info": {
+          "package_name": "com.flising.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "305111246630-8bk93m5ujlplmrd780l864lrdntbsapn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDA2PL8HUBr6sSvQ-j8Eb54MOayxGZ_LpU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "305111246630-8bk93m5ujlplmrd780l864lrdntbsapn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:305111246630:android:563a36929191db841d43e7",
+        "android_client_info": {
+          "package_name": "com.flising.driver"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "305111246630-8bk93m5ujlplmrd780l864lrdntbsapn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDA2PL8HUBr6sSvQ-j8Eb54MOayxGZ_LpU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "305111246630-8bk93m5ujlplmrd780l864lrdntbsapn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
