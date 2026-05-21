@@ -159,8 +159,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(color: Colors.white70, fontSize: 14)),
             const SizedBox(height: 40),
 
-            _buildField(_nameController, 'Full Name', Icons.person_outline, helperText: 'Use the same name on your driver's license',
-                type: TextInputType.name),
+            _buildField(_nameController, 'Full Name', Icons.person_outline, 'Use the same name on your driver's license'),
             _buildField(_phoneController, 'Phone Number', Icons.phone_android,
                 type: TextInputType.phone),
             _buildField(_emailController, 'Email Address', Icons.email_outlined,
