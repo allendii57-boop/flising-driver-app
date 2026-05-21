@@ -11,23 +11,15 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # UI & Map Engine
   google_maps_flutter: ^2.9.0
-
-  # GPS & Location Services
   geolocator: any
-
-  # Firebase Cloud Backend
+  http: any
   firebase_core: any
   firebase_auth: any
   firebase_database: any
   firebase_storage: any
   firebase_analytics: ^12.3.0
-
-  # Camera & Gallery Access for Driver Docs
   image_picker: any
-
-  # External Link Launcher (WhatsApp Support)
   url_launcher: any
 
 dev_dependencies:
