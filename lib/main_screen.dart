@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
 
 import 'live_map.dart';
@@ -20,6 +21,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   int selectedView = 1;
   bool _isOnline = false;
   bool _isToggleLoading = false;
+  bool _isVerified = false;
 
   StreamSubscription<DatabaseEvent>? _rideSubscription;
   StreamSubscription<DatabaseEvent>? _activeRideListener;
@@ -40,11 +42,9 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   final Color offlineRed = const Color(0xFFD32F2F);
 
   @override
-  bool _isVerified = false;
-
-  @override
   void initState() {
     super.initState();
+    _saveFcmToken(); // FCM ADDED
     _listenForRideRequests();
     _loadVerificationStatus();
   }
@@ -57,26 +57,43 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     super.dispose();
   }
 
+  // ── FCM TOKEN ──────────────────────────────────────────
+  Future<void> _saveFcmToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null) {
+      await FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL:
+            'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      ).ref('drivers/${user.uid}/fcmToken').set(token);
+    }
+  }
+
+  // ── VERIFICATION ───────────────────────────────────────
   Future<void> _loadVerificationStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final snap = await FirebaseDatabase.instanceFor(
       app: Firebase.app(),
-      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      databaseURL:
+          'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
     ).ref('drivers/${user.uid}/profile/isVerified').get();
-    if (mounted) setState(() => _isVerified = (snap.value as bool?) ?? false);
+    if (mounted) {
+      setState(() => _isVerified = (snap.value as bool?) ?? false);
+    }
   }
 
+  // ── GHOST DRIVER (for testing) ─────────────────────────
   void _startGhostDriver() {
     _movementTimer?.cancel();
     _movementTimer =
         Timer.periodic(const Duration(seconds: 2), (timer) async {
       User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
-
       _currentLat += 0.00015;
       _currentLng += 0.00015;
-
       await FirebaseDatabase.instanceFor(
         app: Firebase.app(),
         databaseURL:
@@ -92,6 +109,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     _movementTimer?.cancel();
   }
 
+  // ── RIDE LISTENER ──────────────────────────────────────
   void _listenForRideRequests() {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
@@ -123,6 +141,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
   }
 
+  // ── RIDE POPUP ─────────────────────────────────────────
   void _showRideRequestPopup(String rideId, dynamic rideData) {
     _isRidePopupShowing = true;
     int timeLeft = 30;
@@ -140,7 +159,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           countdownTimer ??=
               Timer.periodic(const Duration(seconds: 1), (timer) {
             if (timeLeft > 0) {
-              setStateDialog(() { timeLeft--; });
+              setStateDialog(() => timeLeft--);
             } else {
               timer.cancel();
               _handleRideAction(
@@ -166,7 +185,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 Text(
                   '00:${timeLeft.toString().padLeft(2, '0')}',
                   style: TextStyle(
-                      color: timeLeft <= 10 ? offlineRed : Colors.white,
+                      color:
+                          timeLeft <= 10 ? offlineRed : Colors.white,
                       fontSize: 45,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2),
@@ -187,11 +207,13 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                         Expanded(
                             child: Text(pickup,
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 14)))
+                                    color: Colors.white,
+                                    fontSize: 14)))
                       ]),
                       const Padding(
                           padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Divider(color: Colors.white24, height: 1)),
+                          child:
+                              Divider(color: Colors.white24, height: 1)),
                       Row(children: [
                         Icon(Icons.location_on,
                             color: flisingOrange, size: 18),
@@ -199,7 +221,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                         Expanded(
                             child: Text(dropoff,
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 14)))
+                                    color: Colors.white,
+                                    fontSize: 14)))
                       ]),
                     ],
                   ),
@@ -227,7 +250,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                     minimumSize: const Size(100, 45)),
                 child: Text('IGNORE',
                     style: TextStyle(
-                        color: offlineRed, fontWeight: FontWeight.bold)),
+                        color: offlineRed,
+                        fontWeight: FontWeight.bold)),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -242,7 +266,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                     minimumSize: const Size(100, 45)),
                 child: const Text('ACCEPT',
                     style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -254,6 +279,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
   }
 
+  // ── RIDE ACTIONS ───────────────────────────────────────
   void _handleRideAction(String rideId, String action,
       BuildContext dialogContext, String pickup, String dropoff) async {
     Navigator.pop(dialogContext);
@@ -266,16 +292,16 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     ).ref();
 
     if (action == 'IGNORED') {
-      // Clear currentRideId so passenger can try next driver
       await dbRef
           .child('drivers/${currentUser?.uid}/currentRideId')
           .remove();
-      await dbRef.child('rides/$rideId').update({'status': 'IGNORED'});
+      await dbRef
+          .child('rides/$rideId')
+          .update({'status': 'IGNORED'});
     } else if (action == 'ACCEPTED') {
       await dbRef
           .child('rides/$rideId')
           .update({'status': 'ACCEPTED'});
-
       if (!mounted) return;
       setState(() {
         _activeRideId = rideId;
@@ -291,7 +317,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   Future<void> _navigateToPickup(String rideId) async {
     final snap = await FirebaseDatabase.instanceFor(
       app: Firebase.app(),
-      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      databaseURL:
+          'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
     ).ref('rides/$rideId').get();
     if (snap.value == null) return;
     final data = snap.value as Map<dynamic, dynamic>;
@@ -302,7 +329,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
-      final fallback = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+      final fallback = Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
       await launchUrl(fallback, mode: LaunchMode.externalApplication);
     }
   }
@@ -325,13 +353,15 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           _stopGhostDriver();
           _activeRideListener?.cancel();
 
-          // Clear currentRideId
           User? currentUser = FirebaseAuth.instance.currentUser;
           FirebaseDatabase.instanceFor(
             app: Firebase.app(),
             databaseURL:
                 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-          ).ref().child('drivers/${currentUser?.uid}/currentRideId').remove();
+          )
+              .ref()
+              .child('drivers/${currentUser?.uid}/currentRideId')
+              .remove();
 
           showDialog(
             context: context,
@@ -342,15 +372,16 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                   side: BorderSide(color: offlineRed, width: 2)),
               title: Text("RIDE CANCELLED",
                   style: TextStyle(
-                      color: offlineRed, fontWeight: FontWeight.bold)),
+                      color: offlineRed,
+                      fontWeight: FontWeight.bold)),
               content: const Text(
                   "The passenger has cancelled the ride request.",
                   style: TextStyle(color: Colors.white70)),
               actions: [
                 ElevatedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: offlineRed),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: offlineRed),
                     child: const Text("OK",
                         style: TextStyle(
                             color: Colors.white,
@@ -365,7 +396,6 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
 
   void _updateMeter(String newStatus) async {
     if (_activeRideId == null) return;
-
     User? currentUser = FirebaseAuth.instance.currentUser;
     final dbRef = FirebaseDatabase.instanceFor(
       app: Firebase.app(),
@@ -373,10 +403,11 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
     ).ref();
 
-    await dbRef.child('rides/$_activeRideId').update({'status': newStatus});
+    await dbRef
+        .child('rides/$_activeRideId')
+        .update({'status': newStatus});
 
     if (newStatus == 'COMPLETED') {
-      // Clear currentRideId when ride is done
       await dbRef
           .child('drivers/${currentUser?.uid}/currentRideId')
           .remove();
@@ -395,8 +426,9 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
   }
 
+  // ── ONLINE TOGGLE ──────────────────────────────────────
   void _toggleStatus() async {
-    setState(() { _isToggleLoading = true; });
+    setState(() => _isToggleLoading = true);
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
@@ -429,10 +461,11 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _isToggleLoading = false; });
+      setState(() => _isToggleLoading = false);
     }
   }
 
+  // ── UI ─────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -455,7 +488,9 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: ElevatedButton(
-                    onPressed: _isToggleLoading || !_isVerified ? null : _toggleStatus,
+                    onPressed: _isToggleLoading || !_isVerified
+                        ? null
+                        : _toggleStatus,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           _isOnline ? onlineGreen : offlineRed,
@@ -497,7 +532,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 decoration: BoxDecoration(
                   color: darkSurface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: flisingOrange, width: 1.5),
+                  border:
+                      Border.all(color: flisingOrange, width: 1.5),
                   boxShadow: [
                     BoxShadow(
                         color: flisingOrange.withOpacity(0.15),
@@ -512,23 +548,27 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                       children: [
                         CircleAvatar(
                           radius: 25,
-                          backgroundColor: flisingOrange.withOpacity(0.2),
+                          backgroundColor:
+                              flisingOrange.withOpacity(0.2),
                           child: Icon(Icons.person,
                               color: flisingOrange, size: 30),
                         ),
                         const SizedBox(width: 15),
                         const Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Text("Passenger",
                                   style: TextStyle(
-                                      color: Colors.white54, fontSize: 12)),
+                                      color: Colors.white54,
+                                      fontSize: 12)),
                               Text("Flising User",
                                   style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 20,
-                                      fontWeight: FontWeight.bold)),
+                                      fontWeight:
+                                          FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -557,12 +597,14 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                             Expanded(
                                 child: Text(_passengerPickup,
                                     style: const TextStyle(
-                                        color: Colors.white, fontSize: 13)))
+                                        color: Colors.white,
+                                        fontSize: 13)))
                           ]),
                           const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 6),
-                              child:
-                                  Divider(color: Colors.white24, height: 1)),
+                              padding:
+                                  EdgeInsets.symmetric(vertical: 6),
+                              child: Divider(
+                                  color: Colors.white24, height: 1)),
                           Row(children: [
                             Icon(Icons.location_on,
                                 color: flisingOrange, size: 16),
@@ -570,7 +612,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                             Expanded(
                                 child: Text(_passengerDropoff,
                                     style: const TextStyle(
-                                        color: Colors.white, fontSize: 13)))
+                                        color: Colors.white,
+                                        fontSize: 13)))
                           ]),
                         ],
                       ),
@@ -582,7 +625,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                         onPressed: () {
                           if (_activeRideStatus == 'ACCEPTED') {
                             _updateMeter('IN_PROGRESS');
-                          } else if (_activeRideStatus == 'IN_PROGRESS') {
+                          } else if (_activeRideStatus ==
+                              'IN_PROGRESS') {
                             _updateMeter('COMPLETED');
                           }
                         },
@@ -591,10 +635,11 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                               _activeRideStatus == 'ACCEPTED'
                                   ? flisingOrange
                                   : onlineGreen,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                              borderRadius:
+                                  BorderRadius.circular(12)),
                           elevation: 0,
                         ),
                         child: Text(
@@ -619,20 +664,22 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           ? Container(
               decoration: const BoxDecoration(
                   border: Border(
-                      top: BorderSide(color: Colors.white10, width: 1))),
+                      top: BorderSide(
+                          color: Colors.white10, width: 1))),
               child: BottomNavigationBar(
                 backgroundColor: Colors.black,
                 selectedItemColor: flisingOrange,
                 unselectedItemColor: Colors.white54,
                 currentIndex: selectedView,
-                onTap: (index) {
-                  setState(() { selectedView = index; });
-                },
+                onTap: (index) =>
+                    setState(() => selectedView = index),
                 type: BottomNavigationBarType.fixed,
                 items: const [
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.account_balance_wallet_outlined),
-                      activeIcon: Icon(Icons.account_balance_wallet),
+                      icon: Icon(
+                          Icons.account_balance_wallet_outlined),
+                      activeIcon:
+                          Icon(Icons.account_balance_wallet),
                       label: 'Earnings'),
                   BottomNavigationBarItem(
                       icon: Icon(Icons.map_outlined),
