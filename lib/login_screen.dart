@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// Your exact file names!
 import 'main_screen.dart'; 
 import 'register_screen.dart';
 
@@ -18,7 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
-  // Premium Theme Colors
   final Color flisingOrange = const Color(0xFFE9692C);
   final Color darkSurface = const Color(0xFF1C1C1E);
 
@@ -30,16 +28,43 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() async {
-    setState(() { _isLoading = true; });
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Please enter your email and password.',
+            style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
+      // ✅ SECURITY GATE: Block unverified drivers
+      if (!userCredential.user!.emailVerified) {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'Please verify your email first. Check your inbox!',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 4),
+        ));
+        return;
+      }
+
       if (!mounted) return;
-      // Success! Route to the Driver Map
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DriverMainScreen()),
@@ -47,23 +72,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      
       String errorMessage = "Login Failed: ${e.message}";
-      if (e.code == 'user-not-found') errorMessage = 'No driver found for that email.';
-      if (e.code == 'wrong-password') errorMessage = 'Wrong password provided.';
-      
-      // Premium floating error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage, style: const TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFFD32F2F), // Warning Red
-          behavior: SnackBarBehavior.floating,
-        )
-      );
-    } finally {
-      if (mounted) {
-        setState(() { _isLoading = false; });
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No driver found for that email.';
       }
+      if (e.code == 'wrong-password') {
+        errorMessage = 'Wrong password provided.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(errorMessage,
+            style: const TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFFD32F2F),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -79,18 +102,21 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                
-                // --- PREMIUM LOGO BLOCK ---
                 Image.asset(
-                  'assets/images/flising_logo.png', 
+                  'assets/images/flising_logo.png',
                   height: 80,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Icon(Icons.local_taxi, size: 80, color: flisingOrange),
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(Icons.local_taxi, size: 80, color: flisingOrange),
                 ),
                 const SizedBox(height: 20),
                 Text(
                   'DRIVER PORTAL',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: flisingOrange, letterSpacing: 2),
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: flisingOrange,
+                      letterSpacing: 2),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
@@ -101,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 50),
 
-                // --- EMAIL INPUT ---
+                // EMAIL
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -109,16 +135,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     labelText: 'Email Address',
                     labelStyle: const TextStyle(color: Colors.white54),
-                    prefixIcon: Icon(Icons.email_outlined, color: flisingOrange),
+                    prefixIcon:
+                        Icon(Icons.email_outlined, color: flisingOrange),
                     filled: true,
                     fillColor: darkSurface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: flisingOrange, width: 2)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: flisingOrange, width: 2)),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // --- PASSWORD INPUT ---
+                // PASSWORD
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
@@ -126,48 +158,64 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     labelText: 'Password',
                     labelStyle: const TextStyle(color: Colors.white54),
-                    prefixIcon: Icon(Icons.lock_outline, color: flisingOrange),
+                    prefixIcon:
+                        Icon(Icons.lock_outline, color: flisingOrange),
                     suffixIcon: IconButton(
-                      icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white54),
-                      onPressed: () {
-                        setState(() { _isPasswordVisible = !_isPasswordVisible; });
-                      },
+                      icon: Icon(
+                          _isPasswordVisible
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Colors.white54),
+                      onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible),
                     ),
                     filled: true,
                     fillColor: darkSurface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: flisingOrange, width: 2)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: flisingOrange, width: 2)),
                   ),
                 ),
                 const SizedBox(height: 40),
 
-                // --- LOGIN BUTTON ---
+                // LOGIN BUTTON
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: flisingOrange,
-                    disabledBackgroundColor: flisingOrange.withOpacity(0.5),
+                    disabledBackgroundColor:
+                        flisingOrange.withOpacity(0.5),
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 5,
                   ),
                   child: _isLoading
-                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                      : const Text(
-                          'LOGIN',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5),
-                        ),
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 3))
+                      : const Text('LOGIN',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1.5)),
                 ),
                 const SizedBox(height: 25),
 
-                // --- REGISTER LINK ---
+                // REGISTER LINK
                 TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                    );
-                  },
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const RegisterScreen()),
+                  ),
                   child: const Text(
                     "New partner? Apply to drive here.",
                     style: TextStyle(color: Colors.white54, fontSize: 14),
