@@ -19,6 +19,7 @@ dependencies:
   firebase_database: any
   firebase_storage: any
   firebase_analytics: ^12.3.0
+  firebase_messaging: ^16.2.0
   image_picker: any
   url_launcher: any
 
@@ -29,6 +30,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/flising_logo.png
