@@ -9,8 +9,8 @@ import 'dart:async';
 import 'live_map.dart';
 import 'driver_profile.dart';
 import 'earnings_tracker.dart';
-import 'call_screen-1.dart'; // Adjust filename/path if needed
-import 'chat_screen-1.dart'; // Adjust filename/path if needed
+import 'driver_call_screen.dart'; // Adjust filename/path if needed
+import 'driver_chat_screen.dart'; // Adjust filename/path if needed
 
 class DriverMainScreen extends StatefulWidget {
   const DriverMainScreen({super.key});
