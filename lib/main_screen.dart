@@ -11,8 +11,6 @@ import 'dart:async';
 import 'live_map.dart';
 import 'driver_profile.dart';
 import 'earnings_tracker.dart';
-import 'driver_call_screen.dart'; // Adjust filename/path if needed
-import 'driver_chat_screen.dart'; // Adjust filename/path if needed
 
 class DriverMainScreen extends StatefulWidget {
   const DriverMainScreen({super.key});
@@ -603,7 +601,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ChatScreen(
+                                builder: (_) => DriverChatScreen(
                                   rideId: _activeRideId!,
                                   senderType: 'driver',
                                   otherPersonName:
