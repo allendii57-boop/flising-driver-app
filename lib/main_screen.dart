@@ -603,7 +603,6 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                               MaterialPageRoute(
                                 builder: (_) => DriverChatScreen(
                                   rideId: _activeRideId!,
-                                  senderType: 'driver',
                                   otherPersonName:
                                       _passengerName ?? 'Passenger',
                                   otherPersonPhoto:
