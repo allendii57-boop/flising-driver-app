@@ -338,7 +338,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 color: _isVerified ? successGreen : Colors.orange,
               )
             : ElevatedButton(
-                onPressed: () => _pickImage(slot),
+                onPressed: (_isVerified && slot != 'profile') ? null : () => _pickImage(slot),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: flisingOrange,
                   minimumSize: const Size(76, 34),
