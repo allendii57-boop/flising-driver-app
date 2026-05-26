@@ -5,12 +5,12 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,15 +29,15 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Flising Driver
-        flutter build apk --release --split-per-abi
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
 
       - name: Upload APK to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           files: |
-          build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-          build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          build/app/outputs/flutter-apk/app-x86_64-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
