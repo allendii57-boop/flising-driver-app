@@ -76,17 +76,18 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     }
   }
 
-  Future<void> _loadVerificationStatus() async {
+  void _loadVerificationStatus() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final snap = await FirebaseDatabase.instanceFor(
+    FirebaseDatabase.instanceFor(
       app: Firebase.app(),
       databaseURL:
           'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-    ).ref('drivers/${user.uid}/profile/isVerified').get();
-    if (mounted) {
-      setState(() => _isVerified = (snap.value as bool?) ?? false);
-    }
+    ).ref('drivers/${user.uid}/profile/isVerified').onValue.listen((event) {
+      if (mounted) {
+        setState(() => _isVerified = (event.snapshot.value as bool?) ?? false);
+      }
+    });
   }
 
   // Ghost driver for testing
