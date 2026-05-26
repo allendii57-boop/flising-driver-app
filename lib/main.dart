@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 // Flising Core Files
 import 'firebase_options.dart';
 import 'splash_screen.dart'; // <-- The Boot Sequence!
+
 void main() async {
   // 1. Ensure Flutter engine is fully booted before talking to Firebase
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,11 +20,14 @@ void main() async {
   } catch (error) {
     print("WARNING: Firebase failed to start! Error: $error");
   }
+  
   // 3. Launch the App
   runApp(const FlisingDriverApp());
 }
+
 class FlisingDriverApp extends StatelessWidget {
   const FlisingDriverApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -41,11 +45,17 @@ class FlisingDriverApp extends StatelessWidget {
           secondary: Color(0xFFE9692C),
           surface: Color(0xFF1C1C1E), // Premium Dark Surface for cards and dialogs
         ),
+        
         // Forces all AppBars across the app to default to your premium look
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.black,
           elevation: 0,
           iconTheme: IconThemeData(color: Color(0xFFE9692C)),
           centerTitle: true,
+        ),
       ), // <--- This closing parenthesis and comma was missing!
+      
       home: const SplashScreen(), // Starts the cinematic boot sequence
+    );
+  }
+}

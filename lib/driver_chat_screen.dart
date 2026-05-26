@@ -451,8 +451,7 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'No messages yet.
-Say hello!',
+                          'No messages yet. Say hello!',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.white38, fontSize: 14),
                         ),
