@@ -694,6 +694,24 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    if (_activeRideStatus == 'ACCEPTED')
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _navigateToPickup(_activeRideId!),
+                            icon: const Icon(Icons.navigation, color: Colors.blueAccent),
+                            label: const Text('NAVIGATE TO PICKUP',
+                                style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.blueAccent),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
