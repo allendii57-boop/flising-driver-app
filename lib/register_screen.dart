@@ -69,16 +69,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       // 4. Sign out immediately — NO DB write yet
       //    Firebase Database will NOT store any driver data until email is verified
-      await _auth.signOut();
+    await _auth.signOut();
 
-      if (!mounted) return;
-      _showSnack(
-        'Account created! A verification link has been sent to $email. Please verify before logging in.',
-        isError: false,
-      );
-
-      await Future.delayed(const Duration(seconds: 4));
-      if (mounted) Navigator.pushReplacementNamed(context, '/login');
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
+    _showSnack(
+      'Account created! Check your email to verify before logging in.',
+      isError: false,
+    );
     } on FirebaseAuthException catch (e) {
       // Clean up — delete the Auth account so nothing broken is left
       try {
