@@ -500,40 +500,61 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
             SafeArea(
               child: Align(
                 alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: ElevatedButton(
-                    onPressed: _isToggleLoading || !_isVerified
-                        ? null
-                        : _toggleStatus,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _isOnline ? onlineGreen : offlineRed,
-                      disabledBackgroundColor: _isOnline
-                          ? onlineGreen.withOpacity(0.6)
-                          : offlineRed.withOpacity(0.6),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 40, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
-                      elevation: 8,
-                      shadowColor: Colors.black.withOpacity(0.5),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: ElevatedButton(
+                        onPressed: _isToggleLoading || !_isVerified
+                            ? null
+                            : _toggleStatus,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              _isOnline ? onlineGreen : offlineRed,
+                          disabledBackgroundColor: _isOnline
+                              ? onlineGreen.withOpacity(0.6)
+                              : offlineRed.withOpacity(0.6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30)),
+                          elevation: 8,
+                          shadowColor: Colors.black.withOpacity(0.5),
+                        ),
+                        child: _isToggleLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 3))
+                            : Text(
+                                _isOnline ? 'ONLINE' : 'OFFLINE',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 1.5),
+                              ),
+                      ),
                     ),
-                    child: _isToggleLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 3))
-                        : Text(
-                            _isOnline ? 'ONLINE' : 'OFFLINE',
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.5),
+                    if (!_isVerified)
+                      Container(
+                        width: double.infinity,
+                        color: const Color(0xFFB71C1C),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: const Text(
+                          'Please go to the "Verification Portal" on your profile and complete verification in order to go online and accept rides.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                  ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
