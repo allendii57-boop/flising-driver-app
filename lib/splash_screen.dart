@@ -1,39 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:async';
-
-// Make sure these match your actual files!
-import 'login_screen.dart'; 
-import 'main_screen.dart'; 
+import 'dart:math';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
-    _controller.forward();
-
-    Timer(const Duration(milliseconds: 3500), () {
-      User? user = FirebaseAuth.instance.currentUser;
-      
-      if (user != null) {
-        // FIXED: Now correctly routes to the DriverMainScreen class!
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DriverMainScreen()));
-      } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-      }
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) Navigator.pushReplacementNamed(context, '/login');
     });
   }
 
@@ -47,53 +33,98 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
-              Image.asset(
-                'assets/images/flising_logo.png', 
-                width: 200,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Icon(
-                  Icons.local_taxi, 
-                  color: Color(0xFFE9692C), 
-                  size: 100
-                ),
-              ),
-              const SizedBox(height: 25),
-              const Text(
-                "FLISING DRIVER",
-                style: TextStyle(
-                  color: Color(0xFFE9692C), 
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 4.0,
-                ),
-              ),
-              const Spacer(),
-              const CircularProgressIndicator(
-                color: Color(0xFFE9692C),
-                strokeWidth: 3,
-              ),
-              const SizedBox(height: 30),
-              const Text(
-                "FROM VANIMO TO THE WORLD",
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                  letterSpacing: 3.0,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 50),
-            ],
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Spacer(),
+          Image.asset('assets/images/flising_new_logo.jpg', width: 220),
+          const SizedBox(height: 8),
+          const Text('FLISING',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 6)),
+          const SizedBox(height: 8),
+          const Text('DRIVER',
+              style: TextStyle(
+                  color: Color(0xFFE9692C),
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 8)),
+          const SizedBox(height: 48),
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (_, __) => CustomPaint(
+              size: const Size(180, 180),
+              painter: _RingPainter(_controller.value),
+            ),
           ),
-        ),
+          const Spacer(),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 32),
+            child: Text('FROM VANIMO TO THE WORLD',
+                style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    letterSpacing: 2)),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _RingPainter extends CustomPainter {
+  final double progress;
+  _RingPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 10;
+
+    // Orange glow ring
+    final glowPaint = Paint()
+      ..color = const Color(0xFFE9692C).withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 18
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawCircle(center, radius, glowPaint);
+
+    // Orange solid ring
+    final orangePaint = Paint()
+      ..color = const Color(0xFFE9692C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+    canvas.drawCircle(center, radius, orangePaint);
+
+    // White spinning arc
+    final arcPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      2 * pi * progress - pi / 2,
+      pi * 1.2,
+      false,
+      arcPaint,
+    );
+
+    // Navigation arrow dot
+    final dotAngle = 2 * pi * 0.85 - pi / 2;
+    final dotPos = Offset(
+      center.dx + radius * cos(dotAngle),
+      center.dy + radius * sin(dotAngle),
+    );
+    final dotPaint = Paint()..color = const Color(0xFFE9692C);
+    canvas.drawCircle(dotPos, 8, dotPaint);
+    final iconPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(dotPos, 4, iconPaint);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.progress != progress;
 }
