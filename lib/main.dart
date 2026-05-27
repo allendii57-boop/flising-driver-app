@@ -55,7 +55,12 @@ class FlisingDriverApp extends StatelessWidget {
           centerTitle: true,
         ),
       ),
-      home: const SplashScreen(),
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+      },
+      initialRoute: '/',
     );
   }
 }

@@ -36,6 +36,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Spacer(),
             Image.asset('assets/images/flising_new_logo.jpg',
