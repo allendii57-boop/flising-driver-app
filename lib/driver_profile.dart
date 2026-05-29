@@ -93,12 +93,12 @@ class _DriverProfileState extends State<DriverProfile> {
   Future<void> _launchWhatsApp() async {
     final Uri whatsappUri = Uri.parse("https://wa.me/67584171054"); 
     
-    if (await canLaunchUrl(whatsappUri)) {
+    try {
       await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
-    } else {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("WhatsApp is not installed on this device."), backgroundColor: Colors.redAccent)
+        const SnackBar(content: Text("Could not open WhatsApp. Please ensure it is installed."), backgroundColor: Colors.redAccent),
       );
     }
   }
