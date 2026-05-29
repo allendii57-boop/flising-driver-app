@@ -71,6 +71,19 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         final snap = await dbRef.get().timeout(const Duration(seconds: 5));
         if (!snap.exists) {
+          // Reject passengers trying to log into driver app
+          final passSnap = await FirebaseDatabase.instanceFor(
+            app: Firebase.app(),
+            databaseURL: "https://flising-default-rtdb.asia-southeast1.firebasedatabase.app",
+          ).ref("passengers/${refreshed.uid}/profile").get().timeout(const Duration(seconds: 5));
+          if (passSnap.exists) {
+            await FirebaseAuth.instance.signOut();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("This account is registered as a passenger. Please use the Flising Passenger app."), backgroundColor: Colors.redAccent),
+            );
+            return;
+          }
           // First time verified — write profile
           await dbRef.set({
             'fullName': refreshed.displayName ?? '',

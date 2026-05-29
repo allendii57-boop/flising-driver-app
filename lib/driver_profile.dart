@@ -91,7 +91,8 @@ class _DriverProfileState extends State<DriverProfile> {
   }
 
   Future<void> _launchWhatsApp() async {
-    final Uri whatsappUri = Uri.parse("https://wa.me/67584171054"); 
+    const message = "Hi Flising Support, I need help with my Driver app.";
+    final Uri whatsappUri = Uri.parse("https://wa.me/67584171054?text=${Uri.encodeComponent(message)}"); 
     
     try {
       await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
