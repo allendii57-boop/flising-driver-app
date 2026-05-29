@@ -36,33 +36,47 @@ class _SplashScreenState extends State<SplashScreen>
       body: SafeArea(
         child: SizedBox(
           width: double.infinity,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Spacer(),
-            Image.asset('assets/images/flising_new_logo.jpg',
-                width: MediaQuery.of(context).size.width * 0.6),
-            const SizedBox(height: 12),
-            const Text('DRIVER',
-                style: TextStyle(color: Color(0xFFE9692C), fontSize: 36,
-                    fontWeight: FontWeight.w900, letterSpacing: 8)),
-            const SizedBox(height: 48),
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (_, __) => CustomPaint(
-                size: const Size(180, 180),
-                painter: _RingPainter(_controller.value),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Spacer(),
+              Image.asset(
+                'assets/images/flising_new_logo.jpg',
+                width: MediaQuery.of(context).size.width * 0.6,
               ),
-            ),
-            const Spacer(),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 32),
-              child: Text('FROM VANIMO TO THE WORLD',
-                  style: TextStyle(color: Colors.white54, fontSize: 13,
-                      letterSpacing: 2)),
-            ),
-          ],
+              const SizedBox(height: 12),
+              const Text(
+                'DRIVER',
+                style: TextStyle(
+                  color: Color(0xFFE9692C),
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 8,
+                ),
+              ),
+              const SizedBox(height: 48),
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (_, __) => CustomPaint(
+                  size: const Size(180, 180),
+                  painter: _RingPainter(_controller.value),
+                ),
+              ),
+              const Spacer(),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 32),
+                child: Text(
+                  'FROM VANIMO TO THE WORLD',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
