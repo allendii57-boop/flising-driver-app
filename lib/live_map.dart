@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class LiveMap extends StatefulWidget {
   // Pass these when showing a route to pickup/dropoff
@@ -44,6 +46,14 @@ class _LiveMapState extends State<LiveMap> {
     ).listen((pos) {
       final here = LatLng(pos.latitude, pos.longitude);
       _setDriverMarker(here, pos.heading);
+      final _uid = FirebaseAuth.instance.currentUser?.uid;
+      if (_uid != null) {
+        FirebaseDatabase.instance.ref('drivers/$_uid').update({
+          'latitude': pos.latitude,
+          'longitude': pos.longitude,
+          'heading': pos.heading,
+        });
+      }
       _myLocation = here;
       _mapController?.animateCamera(CameraUpdate.newLatLng(here));
     });
