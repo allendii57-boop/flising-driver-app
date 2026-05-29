@@ -23,6 +23,15 @@ class _LiveMapState extends State<LiveMap> {
 
   Set<Polyline> _polylines = {};
   Set<Marker> _markers = {};
+  BitmapDescriptor? _carIcon;
+
+  Future<void> _loadCarIcon() async {
+    _carIcon = await BitmapDescriptor.asset(
+      const ImageConfiguration(size: Size(64, 64)),
+      "assets/images/map_marker.png",
+    );
+    if (mounted) setState(() {});
+  }
 
   final Color flisingOrange = const Color(0xFFE9692C);
   final Color darkSurface = const Color(0xFF1C1C1E);
@@ -33,6 +42,7 @@ class _LiveMapState extends State<LiveMap> {
   @override
   void initState() {
     super.initState();
+    _loadCarIcon();
     _goToMyLocation();
   }
 
@@ -93,8 +103,7 @@ class _LiveMapState extends State<LiveMap> {
         Marker(
           markerId: const MarkerId('driver'),
           position: pos,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueOrange),
+          icon: _carIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
           infoWindow: const InfoWindow(title: 'You'),
         ),
       };
@@ -148,8 +157,7 @@ class _LiveMapState extends State<LiveMap> {
             Marker(
               markerId: const MarkerId('driver'),
               position: origin,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueOrange),
+              icon: _carIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
               infoWindow: const InfoWindow(title: 'You'),
             ),
             Marker(
