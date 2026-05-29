@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -24,6 +25,7 @@ class _LiveMapState extends State<LiveMap> {
   Set<Polyline> _polylines = {};
   Set<Marker> _markers = {};
   BitmapDescriptor? _carIcon;
+  StreamSubscription<Position>? _posStream;
 
   Future<void> _loadCarIcon() async {
     _carIcon = await BitmapDescriptor.asset(
@@ -31,6 +33,20 @@ class _LiveMapState extends State<LiveMap> {
       "assets/images/map_marker.png",
     );
     if (mounted) setState(() {});
+  }
+
+  void _startLiveTracking() {
+    _posStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((pos) {
+      final here = LatLng(pos.latitude, pos.longitude);
+      _setDriverMarker(here, pos.heading);
+      _myLocation = here;
+      _mapController?.animateCamera(CameraUpdate.newLatLng(here));
+    });
   }
 
   final Color flisingOrange = const Color(0xFFE9692C);
@@ -44,10 +60,12 @@ class _LiveMapState extends State<LiveMap> {
     super.initState();
     _loadCarIcon();
     _goToMyLocation();
+    _startLiveTracking();
   }
 
   @override
   void dispose() {
+    _posStream?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -97,14 +115,17 @@ class _LiveMapState extends State<LiveMap> {
     }
   }
 
-  void _setDriverMarker(LatLng pos) {
+  void _setDriverMarker(LatLng pos, [double heading = 0]) {
     setState(() {
       _markers = {
         Marker(
-          markerId: const MarkerId('driver'),
+          markerId: const MarkerId("driver"),
           position: pos,
           icon: _carIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-          infoWindow: const InfoWindow(title: 'You'),
+          rotation: heading,
+          anchor: const Offset(0.5, 0.5),
+          flat: true,
+          infoWindow: const InfoWindow(title: "You"),
         ),
       };
     });
