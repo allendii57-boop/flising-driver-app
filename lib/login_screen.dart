@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final passSnap = await FirebaseDatabase.instanceFor(
             app: Firebase.app(),
             databaseURL: "https://flising-default-rtdb.asia-southeast1.firebasedatabase.app",
-          ).ref("passengers/${refreshed.uid}/profile").get().timeout(const Duration(seconds: 5));
+          ).ref("users/passengers/${refreshed.uid}").get().timeout(const Duration(seconds: 5));
           if (passSnap.exists) {
             await FirebaseAuth.instance.signOut();
             if (!mounted) return;
