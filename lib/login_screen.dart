@@ -90,6 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
             'email': refreshed.email ?? '',
             'isVerified': false,       // admin verification (license check)
             'pendingApproval': false,
+            'vehicleType': 'car',
             'isOnline': false,
             'registeredAt': ServerValue.timestamp,
           }).timeout(const Duration(seconds: 5));

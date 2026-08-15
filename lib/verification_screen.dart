@@ -250,8 +250,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final subtitle = _isVerified
         ? 'You are approved! Go Online and start accepting rides.'
         : _isPending
-            ? 'Documents are under review. We will email you once approved.'
-            : 'Upload all 3 documents below to start driving.';
+            ? 'Documents received. Please visit the Flising office with your vehicle, registration papers and licence so we can confirm and approve you.'
+            : 'Upload all 3 documents below, then visit our office with your vehicle, registration papers and licence for on-site confirmation.';
 
     return Container(
       width: double.infinity,
