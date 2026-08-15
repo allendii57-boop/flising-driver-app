@@ -160,7 +160,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           children: [
             Image.asset(
-              'assets/images/flising_new_logo.jpg',
+              'assets/images/flising_mark.png',
               height: 60,
               errorBuilder: (c, e, s) =>
                   Icon(Icons.local_taxi, color: flisingOrange, size: 60),

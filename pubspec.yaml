@@ -51,6 +51,7 @@ flutter:
     - assets/images/map_marker.png
     - assets/images/app_icon.png
     - assets/images/splash_logo.png
+    - assets/images/flising_mark.png
 
 flutter_launcher_icons:
   android: true

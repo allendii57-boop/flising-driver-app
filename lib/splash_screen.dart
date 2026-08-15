@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen>
             children: [
               const Spacer(),
               Image.asset(
-                'assets/images/splash_logo.png',
+                'assets/images/flising_mark.png',
                 width: MediaQuery.of(context).size.width * 0.6,
               ),
               const SizedBox(height: 12),
