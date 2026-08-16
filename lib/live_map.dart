@@ -39,9 +39,14 @@ class _LiveMapState extends State<LiveMap> {
 
   void _startLiveTracking() {
     _posStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
+      locationSettings: AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 5,
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: "Flising Driver Active",
+          notificationText: "Sharing live location with your passenger",
+          enableWakeLock: true,
+        ),
       ),
     ).listen((pos) {
       final here = LatLng(pos.latitude, pos.longitude);
