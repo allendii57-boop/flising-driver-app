@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 class LiveMap extends StatefulWidget {
   // Pass these when showing a route to pickup/dropoff
@@ -53,7 +54,7 @@ class _LiveMapState extends State<LiveMap> {
       _setDriverMarker(here, pos.heading);
       final _uid = FirebaseAuth.instance.currentUser?.uid;
       if (_uid != null) {
-        FirebaseDatabase.instance.ref('drivers/$_uid').update({
+        FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref('drivers/$_uid').update({
           'latitude': pos.latitude,
           'longitude': pos.longitude,
           'heading': pos.heading,

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
 
@@ -90,29 +91,6 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
   }
 
-  // Ghost driver for testing
-  void _startGhostDriver() {
-    _movementTimer?.cancel();
-    _movementTimer =
-        Timer.periodic(const Duration(seconds: 2), (timer) async {
-      User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
-      _currentLat += 0.00015;
-      _currentLng += 0.00015;
-      await FirebaseDatabase.instanceFor(
-        app: Firebase.app(),
-        databaseURL:
-            'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-      ).ref().child('drivers/${currentUser.uid}').update({
-        'latitude': _currentLat,
-        'longitude': _currentLng,
-      });
-    });
-  }
-
-  void _stopGhostDriver() {
-    _movementTimer?.cancel();
-  }
 
   void _listenForRideRequests() {
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -135,6 +113,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
             event.snapshot.value as Map<dynamic, dynamic>;
         rides.forEach((rideId, rideData) {
           if (rideData['status'] == 'PENDING' &&
+              !_handledRideIds.contains(rideId) &&
               !_isRidePopupShowing &&
               _activeRideStatus == 'IDLE' &&
               _isOnline) {
@@ -145,7 +124,10 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
   }
 
+  final Set<String> _handledRideIds = {};
+
   void _showRideRequestPopup(String rideId, dynamic rideData) {
+    _handledRideIds.add(rideId);
     _isRidePopupShowing = true;
     int timeLeft = 30;
     Timer? countdownTimer;
@@ -327,7 +309,6 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         _passengerName = passengerName;
         _passengerPhoto = passengerPhoto;
       });
-      _startGhostDriver();
       _listenForCancellations(rideId);
     }
   }
@@ -342,6 +323,27 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     final data = snap.value as Map<dynamic, dynamic>;
     final lat = data['pickupLat'];
     final lng = data['pickupLng'];
+    if (lat == null || lng == null) return;
+    final url = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      final fallback = Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+      await launchUrl(fallback, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _navigateToDropoff(String rideId) async {
+    final snap = await FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL:
+          'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref('rides/$rideId').get();
+    if (snap.value == null) return;
+    final data = snap.value as Map<dynamic, dynamic>;
+    final lat = data['dropoffLat'];
+    final lng = data['dropoffLng'];
     if (lat == null || lng == null) return;
     final url = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
     if (await canLaunchUrl(url)) {
@@ -370,7 +372,6 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
             _passengerName = null;
             _passengerPhoto = null;
           });
-          _stopGhostDriver();
           _activeRideListener?.cancel();
 
           User? currentUser = FirebaseAuth.instance.currentUser;
@@ -435,7 +436,6 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         _activeRideStatus = 'IDLE';
         _passengerName = null;
         _passengerPhoto = null;
-        _stopGhostDriver();
         _activeRideListener?.cancel();
       } else {
         _activeRideStatus = newStatus;
@@ -456,6 +456,13 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       };
 
       if (newStatus == true) {
+        try {
+          final pos = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.high));
+          _currentLat = pos.latitude;
+          _currentLng = pos.longitude;
+        } catch (_) {}
         updatePayload['latitude'] = _currentLat;
         updatePayload['longitude'] = _currentLng;
       } else {
@@ -739,6 +746,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                         onPressed: () {
                           if (_activeRideStatus == 'ACCEPTED') {
                             _updateMeter('IN_PROGRESS');
+                            _navigateToDropoff(_activeRideId!);
                           } else if (_activeRideStatus ==
                               'IN_PROGRESS') {
                             _updateMeter('COMPLETED');

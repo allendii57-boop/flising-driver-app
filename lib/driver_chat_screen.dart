@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,7 +44,7 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
   void initState() {
     super.initState();
     _myUid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
-    _chatRef = FirebaseDatabase.instance.ref('chats/${widget.rideId}/messages');
+    _chatRef = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref('chats/${widget.rideId}/messages');
     _listenToMessages();
   }
 
