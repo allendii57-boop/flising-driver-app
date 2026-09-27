@@ -27,6 +27,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   bool _isVerified = false;
 
   StreamSubscription<DatabaseEvent>? _rideSubscription;
+  StreamSubscription<DatabaseEvent>? _incomingCallListener;
+  bool _callScreenOpen = false;
   StreamSubscription<DatabaseEvent>? _activeRideListener;
   bool _isRidePopupShowing = false;
 
@@ -57,7 +59,34 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   }
 
   @override
+  void _watchIncomingCall(String rideId) {
+    _incomingCallListener?.cancel();
+    _incomingCallListener = FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref('rides/$rideId/call').onValue.listen((event) {
+      if (!event.snapshot.exists || !mounted || _callScreenOpen) return;
+      final data = event.snapshot.value as Map<dynamic, dynamic>;
+      if (data['status'] != 'CALLING') return;
+      if (data['callerType'] != 'passenger') return;
+      _callScreenOpen = true;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => DriverCallScreen(
+          rideId: rideId,
+          otherPersonName: _passengerName ?? 'Passenger',
+          otherPersonPhoto: _passengerPhoto,
+        ),
+      )).then((_) => _callScreenOpen = false);
+    });
+  }
+
+  void _stopWatchingIncomingCall() {
+    _incomingCallListener?.cancel();
+    _incomingCallListener = null;
+  }
+
   void dispose() {
+    _incomingCallListener?.cancel();
     _rideSubscription?.cancel();
     _activeRideListener?.cancel();
     _movementTimer?.cancel();
@@ -302,7 +331,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
 
       if (!mounted) return;
       setState(() {
-        _activeRideId = rideId;
+        _activeRideId = rideId; _watchIncomingCall(rideId);
         _activeRideStatus = 'ACCEPTED';
         _passengerPickup = pickup;
         _passengerDropoff = dropoff;
@@ -367,7 +396,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         final data = event.snapshot.value as Map<dynamic, dynamic>;
         if (data['status'] == 'CANCELLED_BY_PASSENGER') {
           setState(() {
-            _activeRideId = null;
+            _activeRideId = null; _stopWatchingIncomingCall();
             _activeRideStatus = 'IDLE';
             _passengerName = null;
             _passengerPhoto = null;
@@ -432,7 +461,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     if (!mounted) return;
     setState(() {
       if (newStatus == 'COMPLETED') {
-        _activeRideId = null;
+        _activeRideId = null; _stopWatchingIncomingCall();
         _activeRideStatus = 'IDLE';
         _passengerName = null;
         _passengerPhoto = null;
@@ -662,9 +691,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => CallScreen(
+                                builder: (_) => DriverCallScreen(
                                   rideId: _activeRideId!,
-                                  callerType: 'driver',
                                   otherPersonName:
                                       _passengerName ?? 'Passenger',
                                   otherPersonPhoto:
