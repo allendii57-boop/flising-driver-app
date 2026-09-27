@@ -73,6 +73,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => DriverCallScreen(
           rideId: rideId,
+          isIncoming: true,
           otherPersonName: _passengerName ?? 'Passenger',
           otherPersonPhoto: _passengerPhoto,
         ),

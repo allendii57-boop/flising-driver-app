@@ -10,12 +10,14 @@ class DriverCallScreen extends StatefulWidget {
   final String rideId;
   final String otherPersonName;
   final String? otherPersonPhoto;
+  final bool isIncoming;
 
   const DriverCallScreen({
     super.key,
     required this.rideId,
     required this.otherPersonName,
     this.otherPersonPhoto,
+    this.isIncoming = false,
   });
 
   @override
@@ -71,7 +73,9 @@ class _DriverCallScreenState extends State<DriverCallScreen> {
       return;
     }
 
-    await _callRef.set({
+    if (widget.isIncoming) {
+      await _callRef.update({'status': 'ANSWERED'});
+    } else await _callRef.set({
       'status': 'CALLING',
       'callerType': 'driver',
       'channel': widget.rideId,
