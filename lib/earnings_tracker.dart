@@ -116,7 +116,7 @@ if (value['timestamp'] != null) {
                                           String destination = ride['dropoffText'] ?? "Unknown Dropoff";
                                           
                                           String fareStr = ride['fare']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? "0.0";
-                                          double netFare = (double.tryParse(fareStr) ?? 0.0) * 0.80;
+                                          double netFare = (double.tryParse(fareStr) ?? 0.0) * 0.90;
                                           
                                           String timeText = "Unknown Time";
                                           if (ride['timestamp'] != null) {
@@ -161,9 +161,9 @@ if (value['timestamp'] != null) {
           _rowItem("Total Fare Collected", "K ${gross.toStringAsFixed(2)}", Colors.white70, successGreen),
           const SizedBox(height: 4),
           // Correction Applied: Removed minus sign for partnership look
-          _rowItem("Flising Share (20%)", "K ${(gross * 0.20).toStringAsFixed(2)}", Colors.white70, flisingOrange),
+          _rowItem("Flising Share (10%)", "K ${(gross * 0.10).toStringAsFixed(2)}", Colors.white70, flisingOrange),
           const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(color: Colors.white10)),
-          _rowItem("Your Net Earnings", "K ${(gross * 0.80).toStringAsFixed(2)}", Colors.white, successGreen, isBig: true),
+          _rowItem("Your Net Earnings", "K ${(gross * 0.90).toStringAsFixed(2)}", Colors.white, successGreen, isBig: true),
         ],
       ),
     );

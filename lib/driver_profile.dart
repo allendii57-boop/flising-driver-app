@@ -82,7 +82,7 @@ class _DriverProfileState extends State<DriverProfile> {
             String fareStr = value['fare']?.toString() ?? "K 0.00";
             fareStr = fareStr.replaceAll(RegExp(r'[^0-9.]'), '');
             double grossFare = double.tryParse(fareStr) ?? 0.0;
-            calculatedBalance += (grossFare * 0.80);
+            calculatedBalance += (grossFare * 0.90);
           }
         });
       }
