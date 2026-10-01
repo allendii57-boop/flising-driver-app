@@ -29,6 +29,12 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   StreamSubscription<DatabaseEvent>? _rideSubscription;
   StreamSubscription<DatabaseEvent>? _incomingCallListener;
   bool _callScreenOpen = false;
+  bool _isDelivery = false;
+  bool _recipientPays = false;
+  String _recipientName = '';
+  String _recipientPhone = '';
+  String _parcelNote = '';
+  String _deliveryPin = '';
   StreamSubscription<DatabaseEvent>? _activeRideListener;
   bool _isRidePopupShowing = false;
 
@@ -59,6 +65,72 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   }
 
   @override
+  Future<void> _loadDelivery(String rideId) async {
+    final snap = await FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref('rides/$rideId').get();
+    if (!mounted || snap.value == null) return;
+    final d = snap.value as Map<dynamic, dynamic>;
+    setState(() {
+      _isDelivery = d['type'] == 'delivery';
+      _recipientPays = d['payer'] == 'recipient';
+      _recipientName = (d['recipientName'] ?? '').toString();
+      _recipientPhone = (d['recipientPhone'] ?? '').toString();
+      _parcelNote = (d['parcelNote'] ?? '').toString();
+      _deliveryPin = (d['deliveryPin'] ?? '').toString();
+    });
+  }
+
+  Future<void> _callRecipient() async {
+    if (_recipientPhone.isEmpty) return;
+    await launchUrl(Uri(scheme: 'tel', path: _recipientPhone),
+        mode: LaunchMode.externalApplication);
+  }
+
+  void _askDeliveryPin() {
+    final ctrl = TextEditingController();
+    String? err;
+    showDialog(
+      context: context,
+      builder: (dCtx) => StatefulBuilder(
+        builder: (sCtx, setD) => AlertDialog(
+          backgroundColor: darkSurface,
+          title: const Text('Delivery PIN', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            style: const TextStyle(color: Colors.white, fontSize: 24, letterSpacing: 8),
+            decoration: InputDecoration(
+              hintText: 'Ask the recipient',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 14, letterSpacing: 0),
+              errorText: err,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx),
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_deliveryPin.isEmpty || ctrl.text.trim() == _deliveryPin) {
+                  Navigator.pop(dCtx);
+                  _updateMeter('COMPLETED');
+                } else {
+                  setD(() => err = 'Wrong PIN, check with the recipient');
+                }
+              },
+              child: const Text('CONFIRM'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _watchIncomingCall(String rideId) {
     _incomingCallListener?.cancel();
     _incomingCallListener = FirebaseDatabase.instanceFor(
@@ -162,9 +234,10 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     int timeLeft = 30;
     Timer? countdownTimer;
 
-    String pickup = rideData['pickupText'] ?? 'Unknown Pickup';
+    String pickup = (rideData['type'] == 'delivery' ? '📦 DELIVERY • ' : '') + (rideData['pickupText'] ?? 'Unknown Pickup');
     String dropoff = rideData['dropoffText'] ?? 'Unknown Dropoff';
     String fare = rideData['fare'] ?? 'K 0.00';
+    if (rideData['payer'] == 'recipient') fare = '$fare • recipient pays';
 
     showDialog(
       context: context,
@@ -332,7 +405,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
 
       if (!mounted) return;
       setState(() {
-        _activeRideId = rideId; _watchIncomingCall(rideId);
+        _activeRideId = rideId; _watchIncomingCall(rideId); _loadDelivery(rideId);
         _activeRideStatus = 'ACCEPTED';
         _passengerPickup = pickup;
         _passengerDropoff = dropoff;
@@ -397,7 +470,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         final data = event.snapshot.value as Map<dynamic, dynamic>;
         if (data['status'] == 'CANCELLED_BY_PASSENGER') {
           setState(() {
-            _activeRideId = null; _stopWatchingIncomingCall();
+            _activeRideId = null; _stopWatchingIncomingCall(); _isDelivery = false;
             _activeRideStatus = 'IDLE';
             _passengerName = null;
             _passengerPhoto = null;
@@ -462,7 +535,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     if (!mounted) return;
     setState(() {
       if (newStatus == 'COMPLETED') {
-        _activeRideId = null; _stopWatchingIncomingCall();
+        _activeRideId = null; _stopWatchingIncomingCall(); _isDelivery = false;
         _activeRideStatus = 'IDLE';
         _passengerName = null;
         _passengerPhoto = null;
@@ -751,6 +824,38 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    if (_isDelivery)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: flisingOrange.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: flisingOrange.withOpacity(0.5)),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.inventory_2, color: Colors.white70),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Deliver to $_recipientName',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                if (_parcelNote.isNotEmpty)
+                                  Text(_parcelNote,
+                                      style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                Text(_recipientPays ? 'Collect fare from RECIPIENT' : 'Collect fare from SENDER',
+                                    style: TextStyle(color: flisingOrange, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _callRecipient,
+                            icon: const Icon(Icons.phone, color: Colors.greenAccent),
+                          ),
+                        ]),
+                      ),
                     if (_activeRideStatus == 'ACCEPTED')
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -778,7 +883,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                             _navigateToDropoff(_activeRideId!);
                           } else if (_activeRideStatus ==
                               'IN_PROGRESS') {
-                            _updateMeter('COMPLETED');
+                            if (_isDelivery) { _askDeliveryPin(); } else { _updateMeter('COMPLETED'); }
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -795,8 +900,8 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                         ),
                         child: Text(
                           _activeRideStatus == 'ACCEPTED'
-                              ? 'PICKUP PASSENGER'
-                              : 'END RIDE & COLLECT FARE',
+                              ? (_isDelivery ? 'PARCEL PICKED UP' : 'PICKUP PASSENGER')
+                              : (_isDelivery ? 'ENTER DELIVERY PIN' : 'END RIDE & COLLECT FARE'),
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
