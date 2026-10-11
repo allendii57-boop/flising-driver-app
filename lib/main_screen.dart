@@ -59,6 +59,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   @override
   void initState() {
     super.initState();
+    _restoreActiveRide();
     _saveFcmToken();
     _listenForRideRequests();
     _loadVerificationStatus();
@@ -88,9 +89,49 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _restoreActiveRide() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final snap = await FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref('rides').orderByChild('assignedDriverId').equalTo(uid).limitToLast(10).get();
+    if (!mounted || snap.value == null) return;
+    final rides = snap.value as Map<dynamic, dynamic>;
+    String? bestId;
+    Map? best;
+    int bestTs = -1;
+    for (final entry in rides.entries) {
+      final r = entry.value;
+      if (r is! Map) continue;
+      if (r['status'] != 'ACCEPTED' && r['status'] != 'IN_PROGRESS') continue;
+      final ts = r['timestamp'] is num ? (r['timestamp'] as num).toInt() : 0;
+      if (ts > bestTs) { bestTs = ts; bestId = entry.key.toString(); best = r; }
+    }
+    if (bestId == null || best == null) return;
+    final String id = bestId!;
+    final Map r = best!;
+    setState(() {
+      _activeRideId = id;
+      _activeRideStatus = r['status'].toString();
+      _passengerPickup = (r['pickupText'] ?? '').toString();
+      _passengerDropoff = (r['dropoffText'] ?? '').toString();
+      _passengerName = r['passengerName']?.toString();
+      _passengerPhoto = r['passengerPhoto']?.toString();
+    });
+    _watchIncomingCall(id);
+    _loadDelivery(id);
+    _listenForCancellations(id);
+  }
+
+  Future<void> _finishWithoutPin() async {
+    if (_activeRideId != null) {
+      await FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref('rides/$_activeRideId').update({'pinBypassed': true});
+    }
+    _updateMeter('COMPLETED');
+  }
+
   void _askDeliveryPin() {
     final ctrl = TextEditingController();
     String? err;
+    int tries = 0;
     showDialog(
       context: context,
       builder: (dCtx) => StatefulBuilder(
@@ -110,6 +151,11 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
             ),
           ),
           actions: [
+            if (tries >= 3)
+              TextButton(
+                onPressed: () { Navigator.pop(dCtx); _finishWithoutPin(); },
+                child: const Text('FINISH WITHOUT PIN', style: TextStyle(color: Colors.redAccent)),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(dCtx),
               child: const Text('CANCEL'),
@@ -120,7 +166,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                   Navigator.pop(dCtx);
                   _updateMeter('COMPLETED');
                 } else {
-                  setD(() => err = 'Wrong PIN, check with the recipient');
+                  setD(() { tries++; err = tries >= 3 ? 'Still wrong. Call the sender for the PIN' : 'Wrong PIN, check with the recipient'; });
                 }
               },
               child: const Text('CONFIRM'),
@@ -468,7 +514,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       if (!mounted) return;
       if (event.snapshot.exists) {
         final data = event.snapshot.value as Map<dynamic, dynamic>;
-        if (data['status'] == 'CANCELLED_BY_PASSENGER') {
+        if (data['status'].toString().startsWith('CANCELLED')) {
           setState(() {
             _activeRideId = null; _stopWatchingIncomingCall(); _isDelivery = false;
             _activeRideStatus = 'IDLE';
