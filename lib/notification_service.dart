@@ -1,3 +1,5 @@
+import "package:flutter_callkit_incoming/entities/entities.dart";
+import "package:flutter_callkit_incoming/flutter_callkit_incoming.dart";
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +8,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('Background message: ${message.notification?.title}');
+  final callKitParams = CallKitParams(
+    id: message.data['rideId'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+    nameCaller: 'New Ride Request',
+    appName: 'Flising Driver',
+    avatar: message.data['passengerPhoto'] ?? '',
+    handle: message.data['pickupText'] ?? (message.notification?.body ?? 'Open app to accept'),
+    type: 0,
+    duration: 30000,
+    textAccept: 'OPEN APP',
+    textDecline: 'DISMISS',
+    missedCallNotification: const NotificationParams(
+      showNotification: true,
+      isShowCallback: false,
+      subtitle: 'Missed ride request',
+    ),
+    extra: message.data,
+  );
+  await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
 }
 
 class NotificationService {
@@ -36,4 +56,3 @@ class NotificationService {
         .ref('drivers/${user.uid}/fcmToken')
         .set(token);
   }
-}

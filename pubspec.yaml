@@ -8,6 +8,7 @@ environment:
   sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
+  flutter_callkit_incoming: ^1.2.7
   flutter:
     sdk: flutter
 
