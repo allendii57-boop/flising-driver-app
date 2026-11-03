@@ -43,8 +43,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     handle: dropoff.isNotEmpty ? '$pickup ➔ $dropoff' : pickup,
     type: 0,
     duration: 30000,
-    textAccept: 'OPEN APP',
-    textDecline: 'DISMISS',
     missedCallNotification: const NotificationParams(
       showNotification: true,
       isShowCallback: false,
