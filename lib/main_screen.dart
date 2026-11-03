@@ -1,3 +1,4 @@
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter/material.dart';
 import 'driver_chat_screen.dart';
 import 'driver_call_screen.dart';
@@ -238,13 +239,18 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
   void _loadVerificationStatus() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    FirebaseDatabase.instanceFor(
+    final db = FirebaseDatabase.instanceFor(
       app: Firebase.app(),
-      databaseURL:
-          'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-    ).ref('drivers/${user.uid}/profile/isVerified').onValue.listen((event) {
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    );
+    db.ref('drivers/${user.uid}/profile/isVerified').onValue.listen((event) {
       if (mounted) {
         setState(() => _isVerified = (event.snapshot.value as bool?) ?? false);
+      }
+    });
+    db.ref('drivers/${user.uid}/isOnline').onValue.listen((event) {
+      if (mounted && event.snapshot.exists) {
+        setState(() => _isOnline = (event.snapshot.value as bool?) ?? false);
       }
     });
   }
@@ -289,16 +295,40 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     _isRidePopupShowing = true;
     int timeLeft = 30;
     Timer? countdownTimer;
+    StreamSubscription<DatabaseEvent>? cancelSub;
+    BuildContext? activeDialogCtx;
+
+    // Dismiss any CallKit screen now that the in-app popup is visible
+    try { FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
 
     String pickup = (rideData['type'] == 'delivery' ? '📦 DELIVERY • ' : '') + (rideData['pickupText'] ?? 'Unknown Pickup');
     String dropoff = rideData['dropoffText'] ?? 'Unknown Dropoff';
     String fare = rideData['fare'] ?? 'K 0.00';
     if (rideData['payer'] == 'recipient') fare = '$fare • recipient pays';
 
+    cancelSub = FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref('rides/$rideId/status').onValue.listen((event) {
+      final st = event.snapshot.value?.toString() ?? '';
+      if (st.startsWith('CANCELLED') || st == 'IGNORED') {
+        countdownTimer?.cancel();
+        cancelSub?.cancel();
+        try { FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
+        if (activeDialogCtx != null && mounted) {
+          Navigator.of(activeDialogCtx!).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ride request was cancelled by passenger.'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
+        activeDialogCtx = dialogContext;
         return StatefulBuilder(builder: (context, setStateDialog) {
           countdownTimer ??=
               Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -419,6 +449,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       },
     ).then((_) {
       countdownTimer?.cancel();
+      cancelSub?.cancel();
       _isRidePopupShowing = false;
     });
   }
