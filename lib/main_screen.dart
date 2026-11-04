@@ -1,3 +1,4 @@
+import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter/material.dart';
 import 'driver_chat_screen.dart';
@@ -190,6 +191,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
 
   void _watchIncomingCall(String rideId) {
     _incomingCallListener?.cancel();
+    _callkitEventSub?.cancel();
     _incomingCallListener = FirebaseDatabase.instanceFor(
       app: Firebase.app(),
       databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -236,7 +238,64 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     }
   }
 
+  StreamSubscription? _callkitEventSub;
+
+  void _setupCallkitListener() {
+    _callkitEventSub?.cancel();
+    _callkitEventSub = FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+      if (event == null) return;
+      final extra = event.body?['extra'];
+      String? rideId;
+      if (extra is Map) {
+        rideId = extra['rideId']?.toString();
+      }
+      if (event.event == Event.actionCallAccept) {
+        try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
+        // Wait briefly for UI to settle in foreground, then show the 30s popup
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) _checkPendingRidesNow();
+        });
+      } else if (event.event == Event.actionCallDecline) {
+        try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
+        if (rideId != null && rideId.isNotEmpty) {
+          _handledRideIds.add(rideId);
+          final user = FirebaseAuth.instance.currentUser;
+          final dbRef = FirebaseDatabase.instanceFor(
+            app: Firebase.app(),
+            databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+          ).ref();
+          await dbRef.child('drivers/${user?.uid}/currentRideId').remove();
+          await dbRef.child('rides/$rideId').update({'status': 'IGNORED'});
+        }
+      }
+    });
+  }
+
+  Future<void> _checkPendingRidesNow() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || !mounted) return;
+    try {
+      final snap = await FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      ).ref('rides').orderByChild('assignedDriverId').equalTo(currentUser.uid).get();
+
+      if (!mounted || !snap.exists || snap.value == null) return;
+      final rides = snap.value as Map<dynamic, dynamic>;
+      rides.forEach((rideId, rideData) {
+        if (rideData is Map &&
+            rideData['status'] == 'PENDING' &&
+            !_handledRideIds.contains(rideId) &&
+            !_isRidePopupShowing &&
+            _activeRideStatus == 'IDLE') {
+          _showRideRequestPopup(rideId.toString(), rideData);
+        }
+      });
+    } catch (_) {}
+  }
+
   void _loadVerificationStatus() {
+    _setupCallkitListener();
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final db = FirebaseDatabase.instanceFor(
@@ -250,11 +309,14 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
     db.ref('drivers/${user.uid}/isOnline').onValue.listen((event) {
       if (mounted && event.snapshot.exists) {
-        setState(() => _isOnline = (event.snapshot.value as bool?) ?? false);
+        final onlineVal = (event.snapshot.value as bool?) ?? false;
+        setState(() => _isOnline = onlineVal);
+        if (onlineVal) {
+          _checkPendingRidesNow();
+        }
       }
     });
   }
-
 
   void _listenForRideRequests() {
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -272,16 +334,16 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         .onValue
         .listen((event) {
       if (!mounted) return;
-      if (event.snapshot.exists) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
         Map<dynamic, dynamic> rides =
             event.snapshot.value as Map<dynamic, dynamic>;
         rides.forEach((rideId, rideData) {
-          if (rideData['status'] == 'PENDING' &&
+          if (rideData is Map &&
+              rideData['status'] == 'PENDING' &&
               !_handledRideIds.contains(rideId) &&
               !_isRidePopupShowing &&
-              _activeRideStatus == 'IDLE' &&
-              _isOnline) {
-            _showRideRequestPopup(rideId as String, rideData);
+              _activeRideStatus == 'IDLE') {
+            _showRideRequestPopup(rideId.toString(), rideData);
           }
         });
       }
