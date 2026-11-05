@@ -242,33 +242,43 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
 
   void _setupCallkitListener() {
     _callkitEventSub?.cancel();
-    _callkitEventSub = FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+    _callkitEventSub = FlutterCallkitIncoming.onEvent.listen((dynamic event) async {
       if (event == null) return;
-      final extra = event.body?['extra'];
-      String? rideId;
-      if (extra is Map) {
-        rideId = extra['rideId']?.toString();
-      }
-      if (event.event == Event.actionCallAccept) {
+      final eventStr = event.toString();
+
+      if (eventStr.contains('Accept') || eventStr.contains('ACCEPT')) {
         try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
-        // Wait briefly for UI to settle in foreground, then show the 30s popup
         Future.delayed(const Duration(milliseconds: 400), () {
           if (mounted) _checkPendingRidesNow();
         });
-      } else if (event.event == Event.actionCallDecline) {
+      } else if (eventStr.contains('Decline') || eventStr.contains('DECLINE')) {
         try { await FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
-        if (rideId != null && rideId.isNotEmpty) {
+        await _declinePendingRidesFromCallkit();
+      }
+    });
+  }
+
+  Future<void> _declinePendingRidesFromCallkit() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    try {
+      final dbRef = FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      ).ref();
+      final snap = await dbRef.child('rides').orderByChild('assignedDriverId').equalTo(currentUser.uid).get();
+      if (!snap.exists || snap.value == null) return;
+      final rides = snap.value as Map<dynamic, dynamic>;
+      for (final entry in rides.entries) {
+        final rideId = entry.key.toString();
+        final rideData = entry.value;
+        if (rideData is Map && rideData['status'] == 'PENDING') {
           _handledRideIds.add(rideId);
-          final user = FirebaseAuth.instance.currentUser;
-          final dbRef = FirebaseDatabase.instanceFor(
-            app: Firebase.app(),
-            databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-          ).ref();
-          await dbRef.child('drivers/${user?.uid}/currentRideId').remove();
+          await dbRef.child('drivers/${currentUser.uid}/currentRideId').remove();
           await dbRef.child('rides/$rideId').update({'status': 'IGNORED'});
         }
       }
-    });
+    } catch (_) {}
   }
 
   Future<void> _checkPendingRidesNow() async {
