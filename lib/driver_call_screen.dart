@@ -42,6 +42,12 @@ class _DriverCallScreenState extends State<DriverCallScreen> {
   bool _otherPersonJoined = false;
 
   int _callDurationSeconds = 0;
+  bool _hasPopped = false;
+  void _safePop() {
+    if (_hasPopped || !mounted) return;
+    _hasPopped = true;
+    if (Navigator.canPop(context)) _safePop();
+  }
   Timer? _callTimer;
   StreamSubscription<DatabaseEvent>? _callSignalListener;
 
@@ -76,7 +82,7 @@ class _DriverCallScreenState extends State<DriverCallScreen> {
             backgroundColor: Colors.red,
           ),
         );
-        Navigator.pop(context);
+        _safePop();
       }
       return;
     }
@@ -173,7 +179,7 @@ class _DriverCallScreenState extends State<DriverCallScreen> {
             backgroundColor: Colors.red,
           ),
         );
-        Navigator.pop(context);
+        _safePop();
       }
     }
   }
@@ -212,7 +218,7 @@ class _DriverCallScreenState extends State<DriverCallScreen> {
     final eng = _engine; _engine = null;
     if (eng != null) { _agoraShutdown = _shutdownEngine(eng); await _agoraShutdown; }
 
-    if (mounted) Navigator.pop(context);
+    _safePop();
   }
 
   Widget _controlButton({
