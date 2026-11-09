@@ -11,16 +11,16 @@ class EarningsTracker extends StatelessWidget {
   final Color successGreen = const Color(0xFF4CAF50);
 
   String _formatDateTime(dynamic ts) {
-    if (ts is! num) return "Unknown Date & Time";
+    if (ts is! num) return 'Unknown Date & Time';
     final d = DateTime.fromMillisecondsSinceEpoch(ts.toInt());
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final hr = d.hour == 0 ? 12 : (d.hour > 12 ? d.hour - 12 : d.hour);
     final min = d.minute.toString().padLeft(2, '0');
     final ampm = d.hour >= 12 ? 'PM' : 'AM';
-    return "${months[d.month - 1]} ${d.day}, ${d.year} • $hr:$min $ampm";
+    return '${months[d.month - 1]} ${d.day}, ${d.year} • $hr:$min $ampm';
   }
 
-  void _showDriverTripModal(BuildContext context, Map<dynamic, dynamic> ride, String dateTimeStr, double gross) {
+  void _showDriverTripModal(BuildContext context, Map ride, String dateTimeStr, double gross) {
     final pickup = (ride['pickupText'] ?? 'Current Location').toString();
     final dropoff = (ride['dropoffText'] ?? 'Unknown Dropoff').toString();
     final passenger = (ride['passengerName'] ?? 'Passenger').toString();
@@ -59,8 +59,7 @@ class EarningsTracker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-
+    final currentUser = FirebaseAuth.instance.currentUser;
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -69,22 +68,21 @@ class EarningsTracker extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Earnings", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('Earnings', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 16),
               Expanded(
                 child: currentUser == null
-                    ? const Center(child: Text("Log in to see earnings", style: TextStyle(color: Colors.white54)))
-                    : StreamBuilder<DatabaseEvent>(
+                    ? const Center(child: Text('Log in to see earnings', style: TextStyle(color: Colors.white54)))
+                    : StreamBuilder(
                         stream: FirebaseDatabase.instanceFor(
                           app: Firebase.app(),
                           databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
                         ).ref().child('rides').orderByChild('assignedDriverId').equalTo(currentUser.uid).onValue,
-                        builder: (context, snapshot) {
+                        builder: (context, AsyncSnapshot snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return Center(child: CircularProgressIndicator(color: flisingOrange));
                           }
-
-                          List> completedRides = [];
+                          final List completedRides = [];
                           double todayGross = 0.0;
                           double weekGross = 0.0;
                           double twoWeekGross = 0.0;
@@ -95,15 +93,14 @@ class EarningsTracker extends StatelessWidget {
                           final cut14 = now.subtract(const Duration(days: 14));
                           final cut30 = now.subtract(const Duration(days: 30));
 
-                          if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-                            final ridesData = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+                          if (snapshot.hasData && snapshot.data?.snapshot.value != null) {
+                            final ridesData = snapshot.data!.snapshot.value as Map;
                             ridesData.forEach((key, value) {
                               if (value is Map && value['status'] == 'COMPLETED') {
                                 completedRides.add(value);
                                 final fareStr = (value['fare'] ?? '0').toString().replaceAll(RegExp(r'[^0-9.]'), '');
                                 final fareAmount = double.tryParse(fareStr) ?? 0.0;
                                 allTimeGross += fareAmount;
-
                                 if (value['timestamp'] is num) {
                                   final rideDate = DateTime.fromMillisecondsSinceEpoch((value['timestamp'] as num).toInt());
                                   if (rideDate.year == now.year && rideDate.month == now.month && rideDate.day == now.day) {
@@ -116,8 +113,7 @@ class EarningsTracker extends StatelessWidget {
                               }
                             });
                           }
-
-                          completedRides.sort((a, b) => ((b['timestamp'] ?? 0) as num).compareTo((a['timestamp'] ?? 0) as num));
+                          completedRides.sort((a, b) => (((b as Map)['timestamp'] ?? 0) as num).compareTo(((a as Map)['timestamp'] ?? 0) as num));
 
                           void showFullBreakdown() {
                             showDialog(
@@ -150,27 +146,26 @@ class EarningsTracker extends StatelessWidget {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard("TODAY (TAP FOR FULL BREAKDOWN)", todayGross, true)),
+                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard('TODAY (TAP FOR FULL BREAKDOWN)', todayGross, true)),
                               const SizedBox(height: 12),
-                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard("THIS WEEK (LAST 7 DAYS)", weekGross, false)),
+                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard('THIS WEEK (LAST 7 DAYS)', weekGross, false)),
                               const SizedBox(height: 20),
-                              Text("Completed Rides (${completedRides.length})", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text('Completed Rides (${completedRides.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                               const SizedBox(height: 10),
                               Expanded(
                                 child: completedRides.isEmpty
-                                    ? const Center(child: Text("No completed rides yet.", style: TextStyle(color: Colors.white30)))
+                                    ? const Center(child: Text('No completed rides yet.', style: TextStyle(color: Colors.white30)))
                                     : ListView.builder(
                                         physics: const BouncingScrollPhysics(),
                                         itemCount: completedRides.length,
                                         itemBuilder: (context, index) {
-                                          final ride = completedRides[index];
-                                          final pickup = (ride['pickupText'] ?? "Current Location").toString();
-                                          final destination = (ride['dropoffText'] ?? "Unknown Dropoff").toString();
+                                          final ride = completedRides[index] as Map;
+                                          final pickup = (ride['pickupText'] ?? 'Current Location').toString();
+                                          final destination = (ride['dropoffText'] ?? 'Unknown Dropoff').toString();
                                           final fareStr = (ride['fare'] ?? '0').toString().replaceAll(RegExp(r'[^0-9.]'), '');
                                           final grossFare = double.tryParse(fareStr) ?? 0.0;
                                           final netFare = grossFare * 0.90;
                                           final dateTimeText = _formatDateTime(ride['timestamp']);
-
                                           return GestureDetector(
                                             onTap: () => _showDriverTripModal(context, ride, dateTimeText, grossFare),
                                             child: _buildTripRow(pickup, destination, netFare.toStringAsFixed(2), dateTimeText),
@@ -204,11 +199,11 @@ class EarningsTracker extends StatelessWidget {
         children: [
           Text(title, style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 10),
-          _rowItem("Total Fare Collected", "K ${gross.toStringAsFixed(2)}", Colors.white70, successGreen),
+          _rowItem('Total Fare Collected', 'K ${gross.toStringAsFixed(2)}', Colors.white70, successGreen),
           const SizedBox(height: 4),
-          _rowItem("Flising Share (10%)", "K ${(gross * 0.10).toStringAsFixed(2)}", Colors.white70, flisingOrange),
+          _rowItem('Flising Share (10%)', 'K ${(gross * 0.10).toStringAsFixed(2)}', Colors.white70, flisingOrange),
           const Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Divider(color: Colors.white10)),
-          _rowItem("Your Net Earnings", "K ${(gross * 0.90).toStringAsFixed(2)}", Colors.white, successGreen, isBig: true),
+          _rowItem('Your Net Earnings', 'K ${(gross * 0.90).toStringAsFixed(2)}', Colors.white, successGreen, isBig: true),
         ],
       ),
     );
@@ -242,14 +237,14 @@ class EarningsTracker extends StatelessWidget {
               children: [
                 Text(dateTime, style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text("From: $pickup", style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('From: $pickup', style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                Text("To: $destination", style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('To: $destination', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
           const SizedBox(width: 10),
-          Text("K $amount", style: TextStyle(color: successGreen, fontSize: 15, fontWeight: FontWeight.bold)),
+          Text('K $amount', style: TextStyle(color: successGreen, fontSize: 15, fontWeight: FontWeight.bold)),
         ],
       ),
     );
