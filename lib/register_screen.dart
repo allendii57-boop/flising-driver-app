@@ -18,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _agreedToTerms = false;
 
   final Color flisingOrange = const Color(0xFFE9692C);
 
@@ -28,6 +29,78 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _showTermsDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Driver Partner Terms & Conditions',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Divider(color: Colors.white24),
+              Expanded(
+                child: ListView(
+                  controller: controller,
+                  children: const [
+                    Text(
+                      'Flising Technologies - Driver Partner Agreement\n\n'
+                      '1. Licensing & Vehicle Roadworthiness\n'
+                      'Drivers must hold a valid Papua New Guinea Class 3 or Class 6 driver\'s license and maintain a roadworthy, registered vehicle at all times.\n\n'
+                      '2. Verification & Conduct\n'
+                      'Your registered name must match your official driver\'s license. Drivers must treat passengers with respect, drive safely within speed limits, and never operate a vehicle under the influence of alcohol or illicit substances.\n\n'
+                      '3. Fares, Commissions & Availability\n'
+                      'Drivers agree to charge only the official fare calculated by the Flising platform. Please switch your status to OFFLINE when ending your shift.\n\n'
+                      '4. Real-Time GPS Tracking & Safety\n'
+                      'While online or on an active trip, the Flising Driver app transmits real-time GPS location data to passengers and the Flising Admin Portal for dispatch, ETA calculation, and trip safety records.',
+                      style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _agreedToTerms = true);
+                  Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: flisingOrange,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('I ACCEPT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _register() async {
@@ -46,39 +119,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (!_agreedToTerms) {
+      _showSnack('Please accept the Driver Terms & Conditions to continue.', isError: true);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     UserCredential? userCredential;
 
     try {
-      // 1. Create Firebase Auth account
       userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // 2. Store name + phone in Auth profile (carried to DB only after verification)
       await userCredential.user?.updateDisplayName(name);
-
-      // Store phone temporarily in photoURL field as a workaround
-      // (Firebase Auth doesn't have a phone field for email/password accounts)
-      // We will write the real profile to DB only after email is verified (in login_screen.dart)
-
-      // 3. Send verification email
       await userCredential.user?.sendEmailVerification();
+      await _auth.signOut();
 
-      // 4. Sign out immediately — NO DB write yet
-      //    Firebase Database will NOT store any driver data until email is verified
-    await _auth.signOut();
-
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
-    _showSnack(
-      'Account created! Check your email to verify before logging in.',
-      isError: false,
-    );
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/login');
+      _showSnack(
+        'Account created! Check your email to verify before logging in.',
+        isError: false,
+      );
     } on FirebaseAuthException catch (e) {
-      // Clean up — delete the Auth account so nothing broken is left
       try {
         await userCredential?.user?.delete();
       } catch (_) {}
@@ -179,32 +245,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
               style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
             const SizedBox(height: 40),
-
-            // Full Name — must match license
             _buildField(
               _nameController,
               'Full Name (as on Driver\'s License)',
               Icons.person_outline,
               helperText: 'Class 3 or Class 6 license name',
             ),
-
-            // Phone
             _buildField(
               _phoneController,
               'Phone Number',
               Icons.phone_android,
               type: TextInputType.phone,
             ),
-
-            // Email
             _buildField(
               _emailController,
               'Email Address',
               Icons.email_outlined,
               type: TextInputType.emailAddress,
             ),
-
-            // Password with toggle
             Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: TextFormField(
@@ -232,11 +290,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
-
-            // Notice banner
             Container(
               padding: const EdgeInsets.all(14),
-              margin: const EdgeInsets.only(bottom: 30),
+              margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
                 color: flisingOrange.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(12),
@@ -257,7 +313,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ],
               ),
             ),
-
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Checkbox(
+                    value: _agreedToTerms,
+                    activeColor: flisingOrange,
+                    side: const BorderSide(color: Colors.white54),
+                    onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _showTermsDialog,
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          children: [
+                            const TextSpan(text: 'I agree to the '),
+                            TextSpan(
+                              text: 'Driver Terms & Conditions and Privacy Policy',
+                              style: TextStyle(
+                                color: flisingOrange,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             ElevatedButton(
               onPressed: _isLoading ? null : _register,
               style: ElevatedButton.styleFrom(
