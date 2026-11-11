@@ -71,15 +71,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: controller,
                   children: const [
                     Text(
-                      'Flising Technologies - Driver Partner Agreement\n\n'
+                      'Flising Ride - Driver Partner Terms & Conditions\n\n'
                       '1. Licensing & Vehicle Roadworthiness\n'
-                      'Drivers must hold a valid Papua New Guinea Class 3 or Class 6 driver\'s license and maintain a roadworthy, registered vehicle at all times.\n\n'
-                      '2. Verification & Conduct\n'
-                      'Your registered name must match your official driver\'s license. Drivers must treat passengers with respect, drive safely within speed limits, and never operate a vehicle under the influence of alcohol or illicit substances.\n\n'
-                      '3. Fares, Commissions & Availability\n'
-                      'Drivers agree to charge only the official fare calculated by the Flising platform. Please switch your status to OFFLINE when ending your shift.\n\n'
-                      '4. Real-Time GPS Tracking & Safety\n'
-                      'While online or on an active trip, the Flising Driver app transmits real-time GPS location data to passengers and the Flising Admin Portal for dispatch, ETA calculation, and trip safety records.',
+                      'Drivers must hold a valid Papua New Guinea driver\'s license and maintain a clean, roadworthy, and properly registered vehicle at all times.\n\n'
+                      '2. Data Ownership, Security & Privacy\n'
+                      'All photographs (profile, driver\'s license, and vehicle photos), full names, phone numbers, and identification records collected by Flising Ride are strictly for internal record-keeping and the safety and security of both drivers and passengers. This information will NEVER be sold, disclosed, or given to any third party, and remains the sole and exclusive property of Flising Ride.\n\n'
+                      '3. Verification & Professional Conduct\n'
+                      'Your registered full name must match your official driver\'s license. Drivers must treat all passengers with courtesy, obey traffic laws, and never operate a vehicle under the influence of alcohol, betel nut excess, or illegal substances.\n\n'
+                      '4. Fares, Cash Collection & Platform Commission\n'
+                      'Drivers must charge only the official fare displayed by the Flising Ride app (Cash in PGK Kina) and remit the agreed 10% platform commission to Flising Ride. Always switch your status to OFFLINE when ending your shift.\n\n'
+                      '5. Real-Time GPS Tracking & Safety Records\n'
+                      'While online or on an active trip, the Flising Driver app transmits real-time GPS location data to passengers and the Flising Admin Portal for dispatch, live ETA calculation, and security records.',
                       style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
                     ),
                   ],
