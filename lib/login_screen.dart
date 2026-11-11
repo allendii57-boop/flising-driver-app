@@ -61,17 +61,42 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // ✅ CHECK IF DELETED BY ADMIN — purge Firebase Auth account & block recreation
-      final delSnap = await FirebaseDatabase.instanceFor(
+      // ✅ VERIFY DRIVER EXISTS IN DB (If deleted by Admin, purge Firebase Auth login!)
+      final dbRef = FirebaseDatabase.instanceFor(
         app: Firebase.app(),
         databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-      ).ref('deleted_accounts/${refreshed.uid}').get().timeout(const Duration(seconds: 10));
-      if (delSnap.exists) {
+      ).ref('drivers/${refreshed.uid}/profile');
+
+      DataSnapshot snap;
+      try {
+        snap = await dbRef.get().timeout(const Duration(seconds: 15));
+      } catch (e) {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        _showSnack('Network error verifying driver account. Please try again.', isError: true);
+        return;
+      }
+
+      if (!snap.exists || (snap.value is Map && (snap.value as Map)['deleted'] == true)) {
+        // Check if they are a passenger trying to log into Driver app
+        final passSnap = await FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+        ).ref('users/passengers/${refreshed.uid}').get().timeout(const Duration(seconds: 10));
+        if (passSnap.exists) {
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          _showSnack('This account is registered as a passenger. Please use the Flising Passenger app.', isError: true);
+          return;
+        }
+        // Driver was deleted by Admin -> permanently delete from Firebase Auth!
         try {
           await FirebaseDatabase.instanceFor(
             app: Firebase.app(),
             databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-          ).ref('deleted_accounts/${refreshed.uid}').remove();
+          ).ref('drivers/${refreshed.uid}').remove();
+        } catch (_) {}
+        try {
           await refreshed.delete();
         } catch (_) {
           await FirebaseAuth.instance.signOut();
@@ -79,45 +104,6 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         _showSnack('This driver account was deleted by Admin. Please register a new account.', isError: true);
         return;
-      }
-
-      // ✅ FIRST VERIFIED LOGIN — write driver profile to DB now
-      final dbRef = FirebaseDatabase.instanceFor(
-        app: Firebase.app(),
-        databaseURL:
-            'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-      ).ref('drivers/${refreshed.uid}/profile');
-
-      try {
-        final snap = await dbRef.get().timeout(const Duration(seconds: 5));
-        if (!snap.exists) {
-          // Reject passengers trying to log into driver app
-          final passSnap = await FirebaseDatabase.instanceFor(
-            app: Firebase.app(),
-            databaseURL: "https://flising-default-rtdb.asia-southeast1.firebasedatabase.app",
-          ).ref("users/passengers/${refreshed.uid}").get().timeout(const Duration(seconds: 5));
-          if (passSnap.exists) {
-            await FirebaseAuth.instance.signOut();
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("This account is registered as a passenger. Please use the Flising Passenger app."), backgroundColor: Colors.redAccent),
-            );
-            return;
-          }
-          // First time verified — write profile
-          await dbRef.set({
-            'fullName': refreshed.displayName ?? '',
-            'email': refreshed.email ?? '',
-            'isVerified': false,       // admin verification (license check)
-            'pendingApproval': false,
-            'vehicleType': 'car',
-            'isOnline': false,
-            'registeredAt': ServerValue.timestamp,
-          }).timeout(const Duration(seconds: 5));
-        }
-      } catch (e) {
-        // DB write failed — still allow login, profile will retry next time
-        debugPrint('DB write skipped: $e');
       }
 
       if (!mounted) return;

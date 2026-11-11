@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -20,17 +22,29 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
-    Future.delayed(const Duration(seconds: 4), () {
+    Future.delayed(const Duration(seconds: 4), () async {
       if (!mounted) return;
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && user.emailVerified) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const DriverMainScreen()),
-        );
-      } else {
-        Navigator.pushReplacementNamed(context, "/login");
+        try {
+          final snap = await FirebaseDatabase.instanceFor(
+            app: Firebase.app(),
+            databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+          ).ref('drivers/${user.uid}/profile').get().timeout(const Duration(seconds: 6));
+          if (snap.exists && !(snap.value is Map && (snap.value as Map)['deleted'] == true)) {
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const DriverMainScreen()),
+              );
+            }
+            return;
+          } else {
+            try { await user.delete(); } catch (_) { await FirebaseAuth.instance.signOut(); }
+          }
+        } catch (_) {}
       }
+      if (mounted) Navigator.pushReplacementNamed(context, "/login");
     });
   }
 

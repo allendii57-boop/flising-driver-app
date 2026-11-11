@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -135,6 +137,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       await userCredential.user?.updateDisplayName(name);
+      await FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      ).ref('drivers/${userCredential.user!.uid}/profile').set({
+        'fullName': name,
+        'email': email,
+        'isVerified': false,
+        'pendingApproval': false,
+        'vehicleType': 'car',
+        'isOnline': false,
+        'registeredAt': ServerValue.timestamp,
+      });
       await userCredential.user?.sendEmailVerification();
       await _auth.signOut();
 
