@@ -61,6 +61,26 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // ✅ CHECK IF DELETED BY ADMIN — purge Firebase Auth account & block recreation
+      final delSnap = await FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+      ).ref('deleted_accounts/${refreshed.uid}').get().timeout(const Duration(seconds: 10));
+      if (delSnap.exists) {
+        try {
+          await FirebaseDatabase.instanceFor(
+            app: Firebase.app(),
+            databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+          ).ref('deleted_accounts/${refreshed.uid}').remove();
+          await refreshed.delete();
+        } catch (_) {
+          await FirebaseAuth.instance.signOut();
+        }
+        if (!mounted) return;
+        _showSnack('This driver account was deleted by Admin. Please register a new account.', isError: true);
+        return;
+      }
+
       // ✅ FIRST VERIFIED LOGIN — write driver profile to DB now
       final dbRef = FirebaseDatabase.instanceFor(
         app: Firebase.app(),
