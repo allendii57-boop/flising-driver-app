@@ -145,6 +145,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ).ref('drivers/${userCredential.user!.uid}/profile').set({
         'fullName': name,
         'email': email,
+        'phone': phone,
+        'phoneNumber': phone,
         'isVerified': false,
         'pendingApproval': false,
         'vehicleType': 'car',

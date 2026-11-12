@@ -198,7 +198,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     ).ref('rides/$rideId/call').onValue.listen((event) {
       if (!event.snapshot.exists || !mounted || _callScreenOpen) return;
       final data = event.snapshot.value as Map<dynamic, dynamic>;
-      if (data['status'] != 'CALLING') return;
+      if (_activeRideStatus == 'IN_PROGRESS' || data['status'] != 'CALLING') return;
       if (data['callerType'] != 'passenger') return;
       _callScreenOpen = true;
       Navigator.push(context, MaterialPageRoute(
@@ -548,7 +548,32 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           .remove();
       await dbRef.child('rides/$rideId').update({'status': 'IGNORED'});
     } else if (action == 'ACCEPTED') {
-      await dbRef.child('rides/$rideId').update({'status': 'ACCEPTED'});
+      String drvName = currentUser?.displayName ?? 'Flising Driver';
+      String? drvPhoto;
+      String? drvCarModel;
+      String? drvPlate;
+      try {
+        final pSnap = await dbRef.child('drivers/${currentUser?.uid}/profile').get();
+        if (pSnap.exists && pSnap.value is Map) {
+          final pMap = pSnap.value as Map;
+          if (pMap['fullName'] != null && pMap['fullName'].toString().trim().isNotEmpty) {
+            drvName = pMap['fullName'].toString().trim();
+          }
+          drvPhoto = pMap['profileImageUrl']?.toString();
+          drvCarModel = pMap['carModel']?.toString();
+          drvPlate = pMap['plateNumber']?.toString();
+        }
+      } catch (_) {}
+      final drvFirst = drvName.split(' ').first;
+      await dbRef.child('rides/$rideId').update({
+        'status': 'ACCEPTED',
+        'driverName': drvName,
+        'driverFirstName': drvFirst,
+        'if_photo': drvPhoto,
+        if (drvPhoto != null) 'driverPhoto': drvPhoto,
+        if (drvCarModel != null) 'carModel': drvCarModel,
+        if (drvPlate != null) 'plateNumber': drvPlate,
+      });
 
       // Try to fetch passenger display info
       String? passengerName;
@@ -701,6 +726,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
         _activeRideListener?.cancel();
       } else {
         _activeRideStatus = newStatus;
+        if (newStatus == 'IN_PROGRESS') _stopWatchingIncomingCall();
       }
     });
   }
@@ -885,65 +911,62 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                           ),
                         ),
 
-                        // Chat button
-                        GestureDetector(
-                          onTap: () {
-                            if (_activeRideId == null) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DriverChatScreen(
-                                  rideId: _activeRideId!,
-                                  otherPersonName:
-                                      _passengerName ?? 'Passenger',
-                                  otherPersonPhoto:
-                                      _passengerPhoto,
+                        if (_activeRideStatus == 'ACCEPTED') ...[
+                          GestureDetector(
+                            onTap: () {
+                              if (_activeRideId == null) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DriverChatScreen(
+                                    rideId: _activeRideId!,
+                                    otherPersonName: _passengerName ?? 'Passenger',
+                                    otherPersonPhoto: _passengerPhoto,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: const BoxDecoration(
-                              color: Colors.black,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.chat,
-                              color: Colors.white,
-                              size: 20,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+                              child: const Icon(Icons.chat, color: Colors.white, size: 20),
                             ),
                           ),
-                        ),
-
-                        // In-app call button
-                        GestureDetector(
-                          onTap: () {
-                            if (_activeRideId == null) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DriverCallScreen(
-                                  rideId: _activeRideId!,
-                                  otherPersonName:
-                                      _passengerName ?? 'Passenger',
-                                  otherPersonPhoto:
-                                      _passengerPhoto,
+                          GestureDetector(
+                            onTap: () {
+                              if (_activeRideId == null) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DriverCallScreen(
+                                    rideId: _activeRideId!,
+                                    otherPersonName: _passengerName ?? 'Passenger',
+                                    otherPersonPhoto: _passengerPhoto,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                                color:
-                                    onlineGreen.withOpacity(0.2),
-                                shape: BoxShape.circle),
-                            child: Icon(Icons.phone,
-                                color: onlineGreen, size: 22),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: onlineGreen.withOpacity(0.2), shape: BoxShape.circle),
+                              child: Icon(Icons.phone, color: onlineGreen, size: 22),
+                            ),
                           ),
-                        ),
+                        ] else ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock_outline, color: Colors.white54, size: 14),
+                                SizedBox(width: 4),
+                                Text("Calls locked on trip", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 20),
