@@ -9,7 +9,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 class LiveMap extends StatefulWidget {
-  // Pass these when showing a route to pickup/dropoff
   final LatLng? destination;
   final String? destinationLabel;
 
@@ -22,20 +21,126 @@ class LiveMap extends StatefulWidget {
 class _LiveMapState extends State<LiveMap> {
   GoogleMapController? _mapController;
   LatLng _myLocation = const LatLng(-2.6741, 141.3028);
+  double _myHeading = 0.0;
   bool _isLoadingLocation = true;
   bool _isLoadingRoute = false;
 
   Set<Polyline> _polylines = {};
   Set<Marker> _markers = {};
+  Marker? _destMarker;
+  LatLng? _activeTarget;
+  String? _lastRouteKey;
   BitmapDescriptor? _carIcon;
   StreamSubscription<Position>? _posStream;
+  StreamSubscription<DatabaseEvent>? _rideStream;
+
+  final Color flisingOrange = const Color(0xFFE9692C);
+  final Color darkSurface = const Color(0xFF1C1C1E);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCarIcon();
+    _goToMyLocation();
+    _startLiveTracking();
+    _watchActiveRideRoute();
+  }
+
+  @override
+  void dispose() {
+    _posStream?.cancel();
+    _rideStream?.cancel();
+    _mapController?.dispose();
+    super.dispose();
+  }
 
   Future<void> _loadCarIcon() async {
     _carIcon = await BitmapDescriptor.asset(
       const ImageConfiguration(size: Size(64, 64)),
       "assets/images/map_marker.png",
     );
-    if (mounted) setState(() {});
+    if (mounted) _setDriverMarker(_myLocation, _myHeading);
+  }
+
+  void _watchActiveRideRoute() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final db = FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref();
+
+    _rideStream = db
+        .child('rides')
+        .orderByChild('assignedDriverId')
+        .equalTo(uid)
+        .onValue
+        .listen((event) {
+      if (!mounted) return;
+      LatLng? target;
+      String? label;
+      double hue = BitmapDescriptor.hueRed;
+      String? rideStatus;
+      String? rideId;
+
+      if (event.snapshot.exists && event.snapshot.value is Map) {
+        final rides = event.snapshot.value as Map;
+        int bestTs = -1;
+        rides.forEach((k, v) {
+          if (v is Map && (v['status'] == 'ACCEPTED' || v['status'] == 'IN_PROGRESS')) {
+            final ts = v['timestamp'] is num ? (v['timestamp'] as num).toInt() : 0;
+            if (ts > bestTs) {
+              bestTs = ts;
+              rideId = k.toString();
+              rideStatus = v['status'].toString();
+              if (rideStatus == 'ACCEPTED') {
+                final lat = v['pickupLat'];
+                final lng = v['pickupLng'];
+                if (lat is num && lng is num) {
+                  target = LatLng(lat.toDouble(), lng.toDouble());
+                  label = 'Pickup: ${v['pickupText'] ?? 'Passenger'}';
+                  hue = BitmapDescriptor.hueGreen;
+                }
+              } else if (rideStatus == 'IN_PROGRESS') {
+                final lat = v['dropoffLat'];
+                final lng = v['dropoffLng'];
+                if (lat is num && lng is num) {
+                  target = LatLng(lat.toDouble(), lng.toDouble());
+                  label = 'Dropoff: ${v['dropoffText'] ?? 'Destination'}';
+                  hue = BitmapDescriptor.hueRed;
+                }
+              }
+            }
+          }
+        });
+      }
+
+      if (target == null && widget.destination != null) {
+        target = widget.destination;
+        label = widget.destinationLabel ?? 'Destination';
+      }
+
+      if (target == null) {
+        if (_polylines.isNotEmpty || _destMarker != null) {
+          setState(() {
+            _polylines = {};
+            _destMarker = null;
+            _activeTarget = null;
+            _lastRouteKey = null;
+          });
+          _setDriverMarker(_myLocation, _myHeading);
+        }
+        return;
+      }
+
+      final routeKey = '${rideId ?? "custom"}_${rideStatus ?? ""}_${target!.latitude}_${target!.longitude}';
+      if (_lastRouteKey != routeKey) {
+        _lastRouteKey = routeKey;
+        _activeTarget = target;
+        _drawRoute(_myLocation, target!, label: label, pinHue: hue);
+      }
+    });
   }
 
   void _startLiveTracking() {
@@ -51,39 +156,24 @@ class _LiveMapState extends State<LiveMap> {
       ),
     ).listen((pos) {
       final here = LatLng(pos.latitude, pos.longitude);
+      _myLocation = here;
+      _myHeading = pos.heading;
       _setDriverMarker(here, pos.heading);
-      final _uid = FirebaseAuth.instance.currentUser?.uid;
-      if (_uid != null) {
-        FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref('drivers/$_uid').update({
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+        ).ref('drivers/$uid').update({
           'latitude': pos.latitude,
           'longitude': pos.longitude,
           'heading': pos.heading,
         });
       }
-      _myLocation = here;
-      _mapController?.animateCamera(CameraUpdate.newLatLng(here));
+      if (_activeTarget == null) {
+        _mapController?.animateCamera(CameraUpdate.newLatLng(here));
+      }
     });
-  }
-
-  final Color flisingOrange = const Color(0xFFE9692C);
-  final Color darkSurface = const Color(0xFF1C1C1E);
-
-  // YOUR GOOGLE MAPS API KEY
-  static const String _apiKey = 'AIzaSyCLZjxEEPtXycS2meKlSlhyk_x2gn9daBo';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCarIcon();
-    _goToMyLocation();
-    _startLiveTracking();
-  }
-
-  @override
-  void dispose() {
-    _posStream?.cancel();
-    _mapController?.dispose();
-    super.dispose();
   }
 
   Future<void> _goToMyLocation() async {
@@ -109,6 +199,7 @@ class _LiveMapState extends State<LiveMap> {
       if (!mounted) return;
       setState(() {
         _myLocation = myPos;
+        _myHeading = position.heading;
         _isLoadingLocation = false;
       });
 
@@ -118,11 +209,12 @@ class _LiveMapState extends State<LiveMap> {
         ),
       );
 
-      // If a destination was passed, draw the route!
-      if (widget.destination != null) {
-        await _drawRoute(myPos, widget.destination!);
+      if (_activeTarget != null) {
+        await _drawRoute(myPos, _activeTarget!);
+      } else if (widget.destination != null) {
+        await _drawRoute(myPos, widget.destination!, label: widget.destinationLabel);
       } else {
-        _setDriverMarker(myPos);
+        _setDriverMarker(myPos, position.heading);
       }
     } catch (e) {
       if (!mounted) return;
@@ -132,6 +224,7 @@ class _LiveMapState extends State<LiveMap> {
   }
 
   void _setDriverMarker(LatLng pos, [double heading = 0]) {
+    if (!mounted) return;
     setState(() {
       _markers = {
         Marker(
@@ -143,83 +236,77 @@ class _LiveMapState extends State<LiveMap> {
           flat: true,
           infoWindow: const InfoWindow(title: "You"),
         ),
+        if (_destMarker != null) _destMarker!,
       };
     });
   }
 
-  Future<void> _drawRoute(LatLng origin, LatLng destination) async {
+  Future<void> _drawRoute(
+    LatLng origin,
+    LatLng destination, {
+    String? label,
+    double pinHue = BitmapDescriptor.hueRed,
+  }) async {
+    if (!mounted) return;
     setState(() => _isLoadingRoute = true);
 
     try {
       final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=${origin.latitude},${origin.longitude}'
-        '&destination=${destination.latitude},${destination.longitude}'
-        '&key=$_apiKey',
+        'https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=polyline',
       );
 
       final response = await http.get(url);
       final data = json.decode(response.body);
 
-      if (data['status'] == 'OK') {
-        final points = data['routes'][0]['overview_polyline']['points'];
+      if (data['code'] == 'Ok' && data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+        final points = data['routes'][0]['geometry'] as String;
         final polylineCoords = _decodePolyline(points);
 
-        // Fit the map to show both points
-        final bounds = LatLngBounds(
-          southwest: LatLng(
-            [origin.latitude, destination.latitude].reduce((a, b) => a < b ? a : b),
-            [origin.longitude, destination.longitude].reduce((a, b) => a < b ? a : b),
-          ),
-          northeast: LatLng(
-            [origin.latitude, destination.latitude].reduce((a, b) => a > b ? a : b),
-            [origin.longitude, destination.longitude].reduce((a, b) => a > b ? a : b),
-          ),
-        );
+        double minLat = [origin.latitude, destination.latitude, ...polylineCoords.map((p) => p.latitude)].reduce((a, b) => a < b ? a : b);
+        double maxLat = [origin.latitude, destination.latitude, ...polylineCoords.map((p) => p.latitude)].reduce((a, b) => a > b ? a : b);
+        double minLng = [origin.longitude, destination.longitude, ...polylineCoords.map((p) => p.longitude)].reduce((a, b) => a < b ? a : b);
+        double maxLng = [origin.longitude, destination.longitude, ...polylineCoords.map((p) => p.longitude)].reduce((a, b) => a > b ? a : b);
 
         _mapController?.animateCamera(
-          CameraUpdate.newLatLngBounds(bounds, 80),
+          CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(minLat, minLng),
+              northeast: LatLng(maxLat, maxLng),
+            ),
+            80,
+          ),
         );
 
-        setState(() {
-          _polylines = {
-            Polyline(
-              polylineId: const PolylineId('route'),
-              points: polylineCoords,
-              color: flisingOrange,
-              width: 5,
-            ),
-          };
-          _markers = {
-            Marker(
-              markerId: const MarkerId('driver'),
-              position: origin,
-              icon: _carIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-              infoWindow: const InfoWindow(title: 'You'),
-            ),
-            Marker(
-              markerId: const MarkerId('destination'),
-              position: destination,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueRed),
-              infoWindow: InfoWindow(
-                  title: widget.destinationLabel ?? 'Destination'),
-            ),
-          };
-        });
+        _destMarker = Marker(
+          markerId: const MarkerId('destination'),
+          position: destination,
+          icon: BitmapDescriptor.defaultMarkerWithHue(pinHue),
+          infoWindow: InfoWindow(title: label ?? widget.destinationLabel ?? 'Destination'),
+        );
+
+        if (mounted) {
+          setState(() {
+            _polylines = {
+              Polyline(
+                polylineId: const PolylineId('route'),
+                points: polylineCoords,
+                color: flisingOrange,
+                width: 5,
+              ),
+            };
+          });
+          _setDriverMarker(origin, _myHeading);
+        }
       } else {
-        _showSnack('Could not get directions: ${data['status']}');
-        _setDriverMarker(origin);
+        _setDriverMarker(origin, _myHeading);
       }
-    } catch (e) {
-      _showSnack('Route error: $e');
-      _setDriverMarker(origin);
+    } catch (_) {
+      _setDriverMarker(origin, _myHeading);
     } finally {
       if (mounted) setState(() => _isLoadingRoute = false);
     }
   }
 
-  // Decodes Google's encoded polyline format
   List<LatLng> _decodePolyline(String encoded) {
     List<LatLng> points = [];
     int index = 0, len = encoded.length;
@@ -251,6 +338,7 @@ class _LiveMapState extends State<LiveMap> {
   }
 
   void _showSnack(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(color: Colors.white)),
       backgroundColor: const Color(0xFFD32F2F),
@@ -275,8 +363,6 @@ class _LiveMapState extends State<LiveMap> {
             markers: _markers,
             polylines: _polylines,
           ),
-
-          // GPS pill
           if (_isLoadingLocation || _isLoadingRoute)
             SafeArea(
               child: Align(
@@ -284,13 +370,11 @@ class _LiveMapState extends State<LiveMap> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 80.0),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: darkSurface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: flisingOrange.withOpacity(0.5)),
+                      border: Border.all(color: flisingOrange.withOpacity(0.5)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -298,18 +382,12 @@ class _LiveMapState extends State<LiveMap> {
                         SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(
-                              color: flisingOrange, strokeWidth: 2),
+                          child: CircularProgressIndicator(color: flisingOrange, strokeWidth: 2),
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          _isLoadingRoute
-                              ? "Getting route..."
-                              : "Acquiring GPS...",
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold),
+                          _isLoadingRoute ? "Getting road route..." : "Acquiring GPS...",
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -319,7 +397,6 @@ class _LiveMapState extends State<LiveMap> {
             ),
         ],
       ),
-
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 20.0, right: 10.0),
         child: FloatingActionButton(
@@ -328,8 +405,7 @@ class _LiveMapState extends State<LiveMap> {
           elevation: 5,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-                color: flisingOrange.withOpacity(0.5), width: 1.5),
+            side: BorderSide(color: flisingOrange.withOpacity(0.5), width: 1.5),
           ),
           child: Icon(Icons.my_location, color: flisingOrange, size: 28),
         ),
