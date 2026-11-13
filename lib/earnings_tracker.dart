@@ -88,12 +88,6 @@ class EarningsTracker extends StatelessWidget {
                           final List<String> unsettledRideIds = [];
                           double unsettledGross = 0.0;
                           bool isPendingSettlement = false;
-                          final List<String> unsettledRideIds = [];
-                          double unsettledGross = 0.0;
-                          bool isPendingSettlement = false;
-                          final List<String> unsettledRideIds = [];
-                          double unsettledGross = 0.0;
-                          bool isPendingSettlement = false;
                           double todayGross = 0.0;
                           double weekGross = 0.0;
                           double twoWeekGross = 0.0;
@@ -112,11 +106,6 @@ class EarningsTracker extends StatelessWidget {
                                 final fareStr = (value['fare'] ?? '0').toString().replaceAll(RegExp(r'[^0-9.]'), '');
                                 final fareAmount = double.tryParse(fareStr) ?? 0.0;
                                 allTimeGross += fareAmount;
-                                if (value['payoutStatus'] != 'PAID') {
-                                  unsettledGross += fareAmount;
-                                  unsettledRideIds.add(key.toString());
-                                  if (value['payoutStatus'] == 'PENDING_SETTLEMENT') isPendingSettlement = true;
-                                }
                                 if (value['payoutStatus'] != 'PAID') {
                                   unsettledGross += fareAmount;
                                   unsettledRideIds.add(key.toString());
@@ -229,93 +218,11 @@ class EarningsTracker extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: darkSurface,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: flisingOrange, width: 1.4),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('FLISING SHARE 10%', style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                                          const SizedBox(height: 4),
-                                          Text('K ${(unsettledGross * 0.10).toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                                          Text('From K ${unsettledGross.toStringAsFixed(2)} unsettled fares', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                                        ],
-                                      ),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: unsettledGross <= 0 ? Colors.white12 : (isPendingSettlement ? Colors.amber.shade800 : flisingOrange),
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      onPressed: (unsettledGross <= 0 || isPendingSettlement)
-                                          ? null
-                                          : () async {
-                                              final db = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref();
-                                              for (final rId in unsettledRideIds) {
-                                                await db.child('rides/$rId').update({'payoutStatus': 'PENDING_SETTLEMENT'});
-                                              }
-                                            },
-                                      child: Text(
-                                        unsettledGross <= 0 ? 'SETTLED' : (isPendingSettlement ? 'PENDING...' : 'FLISING SHARE 10%'),
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                                      ),
-                                    ),
+                              
                                   ],
                                 ),
                               ),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: darkSurface,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: flisingOrange, width: 1.4),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('FLISING SHARE 10%', style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                                          const SizedBox(height: 4),
-                                          Text('K ${(unsettledGross * 0.10).toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                                          Text('From K ${unsettledGross.toStringAsFixed(2)} unsettled fares', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                                        ],
-                                      ),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: unsettledGross <= 0 ? Colors.white12 : (isPendingSettlement ? Colors.amber.shade800 : flisingOrange),
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      onPressed: (unsettledGross <= 0 || isPendingSettlement)
-                                          ? null
-                                          : () async {
-                                              final db = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app').ref();
-                                              for (final rId in unsettledRideIds) {
-                                                await db.child('rides/$rId').update({'payoutStatus': 'PENDING_SETTLEMENT'});
-                                              }
-                                            },
-                                      child: Text(
-                                        unsettledGross <= 0 ? 'SETTLED' : (isPendingSettlement ? 'PENDING...' : 'FLISING SHARE 10%'),
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                                      ),
-                                    ),
+                              
                                   ],
                                 ),
                               ),
