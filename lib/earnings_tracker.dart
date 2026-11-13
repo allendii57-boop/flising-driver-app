@@ -109,11 +109,6 @@ class EarningsTracker extends StatelessWidget {
                                 if (value['payoutStatus'] != 'PAID') {
                                   unsettledGross += fareAmount;
                                   unsettledRideIds.add(key.toString());
-                                  if (value['payoutStatus'] == 'PENDING_SETTLEMENT') isPendingSettlement = true;
-                                }
-                                if (value['payoutStatus'] != 'PAID') {
-                                  unsettledGross += fareAmount;
-                                  unsettledRideIds.add(key.toString());
                                   if (value['payoutStatus'] == 'PENDING_SETTLEMENT') {
                                     isPendingSettlement = true;
                                   }
@@ -164,10 +159,10 @@ class EarningsTracker extends StatelessWidget {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Flising Share (10%) Settlement Card
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(14),
+                                margin: const EdgeInsets.only(bottom: 10),
                                 decoration: BoxDecoration(
                                   color: darkSurface,
                                   borderRadius: BorderRadius.circular(16),
@@ -180,7 +175,7 @@ class EarningsTracker extends StatelessWidget {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text('FLISING SHARE (10%)', style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                                          Text('FLISING SHARE 10%', style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                                           const SizedBox(height: 4),
                                           Text('K ${flisingShare10.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                                           Text('From K ${unsettledGross.toStringAsFixed(2)} unsettled fares', style: const TextStyle(color: Colors.white54, fontSize: 11)),
@@ -201,11 +196,6 @@ class EarningsTracker extends StatelessWidget {
                                               for (final rId in unsettledRideIds) {
                                                 await dbRef.child('rides/$rId').update({'payoutStatus': 'PENDING_SETTLEMENT'});
                                               }
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('Flising Share marked as Pending Admin Settlement!')),
-                                                );
-                                              }
                                             },
                                       child: Text(
                                         flisingShare10 <= 0
@@ -214,15 +204,6 @@ class EarningsTracker extends StatelessWidget {
                                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              
-                                  ],
-                                ),
-                              ),
-                              
                                   ],
                                 ),
                               ),
