@@ -60,6 +60,11 @@ class EarningsTracker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
+    final dbRef = FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+    ).ref();
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -69,20 +74,20 @@ class EarningsTracker extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Earnings', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Expanded(
                 child: currentUser == null
                     ? const Center(child: Text('Log in to see earnings', style: TextStyle(color: Colors.white54)))
                     : StreamBuilder(
-                        stream: FirebaseDatabase.instanceFor(
-                          app: Firebase.app(),
-                          databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
-                        ).ref().child('rides').orderByChild('assignedDriverId').equalTo(currentUser.uid).onValue,
+                        stream: dbRef.child('rides').orderByChild('assignedDriverId').equalTo(currentUser.uid).onValue,
                         builder: (context, AsyncSnapshot snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return Center(child: CircularProgressIndicator(color: flisingOrange));
                           }
                           final List completedRides = [];
+                          final List<String> unsettledRideIds = [];
+                          double unsettledGross = 0.0;
+                          bool isPendingSettlement = false;
                           double todayGross = 0.0;
                           double weekGross = 0.0;
                           double twoWeekGross = 0.0;
@@ -101,6 +106,13 @@ class EarningsTracker extends StatelessWidget {
                                 final fareStr = (value['fare'] ?? '0').toString().replaceAll(RegExp(r'[^0-9.]'), '');
                                 final fareAmount = double.tryParse(fareStr) ?? 0.0;
                                 allTimeGross += fareAmount;
+                                if (value['payoutStatus'] != 'PAID') {
+                                  unsettledGross += fareAmount;
+                                  unsettledRideIds.add(key.toString());
+                                  if (value['payoutStatus'] == 'PENDING_SETTLEMENT') {
+                                    isPendingSettlement = true;
+                                  }
+                                }
                                 if (value['timestamp'] is num) {
                                   final rideDate = DateTime.fromMillisecondsSinceEpoch((value['timestamp'] as num).toInt());
                                   if (rideDate.year == now.year && rideDate.month == now.month && rideDate.day == now.day) {
@@ -114,6 +126,7 @@ class EarningsTracker extends StatelessWidget {
                             });
                           }
                           completedRides.sort((a, b) => (((b as Map)['timestamp'] ?? 0) as num).compareTo(((a as Map)['timestamp'] ?? 0) as num));
+                          final flisingShare10 = unsettledGross * 0.10;
 
                           void showFullBreakdown() {
                             showDialog(
@@ -125,15 +138,15 @@ class EarningsTracker extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Weekly (7d) Net: K ${(weekGross * 0.9).toStringAsFixed(2)} (10%: K ${(weekGross * 0.1).toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                    Text('Weekly (7d) Net: K ${(weekGross * 0.9).toStringAsFixed(2)} (Flising Share 10%: K ${(weekGross * 0.1).toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                                     const SizedBox(height: 8),
-                                    Text('2 Weeks (14d) Net: K ${(twoWeekGross * 0.9).toStringAsFixed(2)} (10%: K ${(twoWeekGross * 0.1).toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                    Text('2 Weeks (14d) Net: K ${(twoWeekGross * 0.9).toStringAsFixed(2)} (Flising Share 10%: K ${(twoWeekGross * 0.1).toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                                     const SizedBox(height: 8),
-                                    Text('Monthly (30d) Net: K ${(monthGross * 0.9).toStringAsFixed(2)} (10%: K ${(monthGross * 0.1).toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                    Text('Monthly (30d) Net: K ${(monthGross * 0.9).toStringAsFixed(2)} (Flising Share 10%: K ${(monthGross * 0.1).toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                                     const Divider(color: Colors.white12, height: 20),
                                     Text('All-Time Gross: K ${allTimeGross.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                     Text('All-Time Net (90%): K ${(allTimeGross * 0.9).toStringAsFixed(2)}', style: TextStyle(color: successGreen, fontWeight: FontWeight.bold)),
-                                    Text('Flising 10%: K ${(allTimeGross * 0.1).toStringAsFixed(2)}', style: TextStyle(color: flisingOrange, fontWeight: FontWeight.bold)),
+                                    Text('Flising Share (10%): K ${(allTimeGross * 0.1).toStringAsFixed(2)}', style: TextStyle(color: flisingOrange, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                                 actions: [
@@ -146,12 +159,66 @@ class EarningsTracker extends StatelessWidget {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard('TODAY (TAP FOR FULL BREAKDOWN)', todayGross, true)),
-                              const SizedBox(height: 12),
-                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard('THIS WEEK (LAST 7 DAYS)', weekGross, false)),
-                              const SizedBox(height: 20),
-                              Text('Completed Rides (${completedRides.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              // Flising Share (10%) Settlement Card
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: darkSurface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: flisingOrange, width: 1.4),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('FLISING SHARE (10%)', style: TextStyle(color: flisingOrange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                                          const SizedBox(height: 4),
+                                          Text('K ${flisingShare10.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                                          Text('From K ${unsettledGross.toStringAsFixed(2)} unsettled fares', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: flisingShare10 <= 0
+                                            ? Colors.white12
+                                            : (isPendingSettlement ? Colors.amber.shade800 : flisingOrange),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: (flisingShare10 <= 0 || isPendingSettlement)
+                                          ? null
+                                          : () async {
+                                              for (final rId in unsettledRideIds) {
+                                                await dbRef.child('rides/$rId').update({'payoutStatus': 'PENDING_SETTLEMENT'});
+                                              }
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Flising Share marked as Pending Admin Settlement!')),
+                                                );
+                                              }
+                                            },
+                                      child: Text(
+                                        flisingShare10 <= 0
+                                            ? 'SETTLED'
+                                            : (isPendingSettlement ? 'PENDING...' : 'FLISING SHARE 10%'),
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                               const SizedBox(height: 10),
+                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard('TODAY (TAP FOR FULL BREAKDOWN)', todayGross, true)),
+                              const SizedBox(height: 10),
+                              GestureDetector(onTap: showFullBreakdown, child: _buildEarningsCard('THIS WEEK (LAST 7 DAYS)', weekGross, false)),
+                              const SizedBox(height: 14),
+                              Text('Completed Rides (${completedRides.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              const SizedBox(height: 8),
                               Expanded(
                                 child: completedRides.isEmpty
                                     ? const Center(child: Text('No completed rides yet.', style: TextStyle(color: Colors.white30)))
