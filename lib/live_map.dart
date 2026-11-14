@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -7,6 +8,25 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
+
+
+class _OsmTileProvider implements TileProvider {
+  static final http.Client _client = http.Client();
+  @override
+  Future<Tile> getTile(int x, int y, int? zoom) async {
+    final z = zoom ?? 15;
+    try {
+      final resp = await _client.get(
+        Uri.parse('https://tile.openstreetmap.org/$z/$x/$y.png'),
+        headers: {'User-Agent': 'FlisingRideApp/2.3 (png.flising.app)'},
+      );
+      if (resp.statusCode == 200) {
+        return Tile(256, 256, resp.bodyBytes);
+      }
+    } catch (_) {}
+    return TileProvider.noTile;
+  }
+}
 
 class LiveMap extends StatefulWidget {
   final LatLng? destination;
@@ -352,6 +372,13 @@ class _LiveMapState extends State<LiveMap> {
       body: Stack(
         children: [
           GoogleMap(
+            mapType: MapType.none,
+            tileOverlays: {
+              TileOverlay(
+                tileOverlayId: const TileOverlayId('osm_detailed'),
+                tileProvider: _OsmTileProvider(),
+              ),
+            },
             initialCameraPosition: CameraPosition(
               target: _myLocation,
               zoom: 14.0,
