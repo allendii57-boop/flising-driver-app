@@ -353,6 +353,14 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
               !_handledRideIds.contains(rideId) &&
               !_isRidePopupShowing &&
               _activeRideStatus == 'IDLE') {
+            final ts = rideData['timestamp'];
+            if (ts is num) {
+              final ageSec = ((DateTime.now().millisecondsSinceEpoch - ts.toInt()) / 1000).round();
+              if (ageSec > 35) {
+                _handledRideIds.add(rideId.toString());
+                return;
+              }
+            }
             _showRideRequestPopup(rideId.toString(), rideData);
           }
         });
@@ -366,6 +374,10 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     _handledRideIds.add(rideId);
     _isRidePopupShowing = true;
     int timeLeft = 30;
+    if (rideData is Map && rideData['timestamp'] is num) {
+      final elapsed = ((DateTime.now().millisecondsSinceEpoch - (rideData['timestamp'] as num).toInt()) / 1000).round();
+      timeLeft = (30 - elapsed).clamp(5, 30);
+    }
     Timer? countdownTimer;
     StreamSubscription<DatabaseEvent>? cancelSub;
     BuildContext? activeDialogCtx;
@@ -383,7 +395,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
       databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
     ).ref('rides/$rideId/status').onValue.listen((event) {
       final st = event.snapshot.value?.toString() ?? '';
-      if (st.startsWith('CANCELLED') || st == 'IGNORED') {
+      if (st.isEmpty || st.startsWith('CANCELLED') || st == 'IGNORED' || st == 'TIMEOUT' || st == 'EXPIRED') {
         countdownTimer?.cancel();
         cancelSub?.cancel();
         try { FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
@@ -533,7 +545,10 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     String pickup,
     String dropoff,
   ) async {
-    Navigator.pop(dialogContext);
+    try { FlutterCallkitIncoming.endAllCalls(); } catch (_) {}
+    if (Navigator.canPop(dialogContext)) {
+      Navigator.pop(dialogContext);
+    }
 
     User? currentUser = FirebaseAuth.instance.currentUser;
     final dbRef = FirebaseDatabase.instanceFor(
@@ -548,6 +563,26 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           .remove();
       await dbRef.child('rides/$rideId').update({'status': 'IGNORED'});
     } else if (action == 'ACCEPTED') {
+      final preSnap = await dbRef.child('rides/$rideId').get();
+      if (!preSnap.exists || preSnap.value is! Map) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ride request expired or was removed.'), backgroundColor: Colors.orange),
+          );
+        }
+        return;
+      }
+      final preMap = preSnap.value as Map;
+      final liveStatus = (preMap['status'] ?? '').toString();
+      if (liveStatus != 'PENDING') {
+        await dbRef.child('drivers/${currentUser?.uid}/currentRideId').remove();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ride is no longer available ($liveStatus).'), backgroundColor: Colors.orange),
+          );
+        }
+        return;
+      }
       String drvName = currentUser?.displayName ?? 'Flising Driver';
       String? drvPhoto;
       String? drvCarModel;
@@ -650,9 +685,20 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
           'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
     ).ref().child('rides/$rideId').onValue.listen((event) {
       if (!mounted) return;
+      if (!event.snapshot.exists || event.snapshot.value == null) {
+        setState(() {
+          _activeRideId = null; _stopWatchingIncomingCall(); _isDelivery = false;
+          _activeRideStatus = 'IDLE';
+          _passengerName = null;
+          _passengerPhoto = null;
+        });
+        _activeRideListener?.cancel();
+        return;
+      }
       if (event.snapshot.exists) {
         final data = event.snapshot.value as Map<dynamic, dynamic>;
-        if (data['status'].toString().startsWith('CANCELLED')) {
+        final st = (data['status'] ?? '').toString();
+        if (st.startsWith('CANCELLED') || st == 'TIMEOUT' || st == 'EXPIRED' || st == 'IGNORED') {
           setState(() {
             _activeRideId = null; _stopWatchingIncomingCall(); _isDelivery = false;
             _activeRideStatus = 'IDLE';
