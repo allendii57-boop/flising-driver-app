@@ -1,3 +1,5 @@
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter/material.dart';
@@ -777,6 +779,424 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
     });
   }
 
+
+  void _showRateCardDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: flisingOrange, width: 1.5),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.receipt_long, color: flisingOrange),
+            const SizedBox(width: 10),
+            const Text(
+              'OFFICIAL RATE CARD',
+              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _rateRow(Icons.directions_car, 'Car Ride', 'K 6.70 / km', 'Standard passenger trip'),
+            const SizedBox(height: 10),
+            _rateRow(Icons.two_wheeler, 'Motorcycle', 'K 5.50 / km', 'Fast solo rider trip'),
+            const SizedBox(height: 10),
+            _rateRow(Icons.inventory_2, 'Parcel Delivery', 'K 5.00 / km', 'Send packages & goods'),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• Fares are calculated by exact OSRM road driving distance.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  SizedBox(height: 4),
+                  Text('• All totals are rounded to the nearest 10 toea (K 0.10).', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  SizedBox(height: 4),
+                  Text('• Platform Service Fee (Flising Share): 10% per completed trip.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: flisingOrange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('CLOSE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rateRow(IconData icon, String title, String rate, String sub) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: flisingOrange, size: 26),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(sub, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              ],
+            ),
+          ),
+          Text(rate, style: TextStyle(color: onlineGreen, fontWeight: FontWeight.bold, fontSize: 15)),
+        ],
+      ),
+    );
+  }
+
+  void _showManualRideDialog() {
+    if (!_isVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Complete verification first to start a ride.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final List> presets = [
+      {'name': 'Vanimo Main Market', 'lat': -2.6775, 'lng': 141.3018},
+      {'name': 'BSP Bank Vanimo', 'lat': -2.6738, 'lng': 141.3029},
+      {'name': 'Vanimo Airport', 'lat': -2.6917, 'lng': 141.3022},
+      {'name': 'Vanimo General Hospital', 'lat': -2.6719, 'lng': 141.3061},
+      {'name': 'Dalai / Wesan', 'lat': -2.6852, 'lng': 141.2965},
+      {'name': 'Greenhills', 'lat': -2.6995, 'lng': 141.2980},
+      {'name': 'Lido Village', 'lat': -2.6625, 'lng': 141.2810},
+      {'name': 'Wutung Border Post', 'lat': -2.6033, 'lng': 141.0019},
+    ];
+
+    final passengerCtrl = TextEditingController();
+    final searchCtrl = TextEditingController();
+    String vehicleType = 'Car';
+    Map<String, dynamic> selectedDest = presets[0];
+    double? roadKm;
+    String fareText = 'Calculating...';
+    bool isCalc = false;
+    bool isStarting = false;
+
+    Future<void> calcFare(StateSetter setD) async {
+      setD(() { isCalc = true; fareText = 'Calculating...'; });
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        _currentLat = pos.latitude;
+        _currentLng = pos.longitude;
+      } catch (_) {}
+
+      final oLat = _currentLat == 0.0 ? -2.6741 : _currentLat;
+      final oLng = _currentLng == 0.0 ? 141.3028 : _currentLng;
+      final dLat = (selectedDest['lat'] as num).toDouble();
+      final dLng = (selectedDest['lng'] as num).toDouble();
+
+      double km = 1.5;
+      try {
+        final url = Uri.parse(
+          'https://router.project-osrm.org/route/v1/driving/$oLng,$oLat;$dLng,$dLat?overview=false',
+        );
+        final resp = await http.get(url);
+        final data = json.decode(resp.body);
+        if (data['code'] == 'Ok' && data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+          final meters = (data['routes'][0]['distance'] as num).toDouble();
+          km = meters / 1000.0;
+        }
+      } catch (_) {}
+
+      if (km < 0.5) km = 0.5;
+      final rate = vehicleType == 'Car' ? 6.70 : 5.50;
+      final raw = km * rate;
+      final rounded = (raw * 10).round() / 10.0;
+      roadKm = km;
+      setD(() {
+        isCalc = false;
+        fareText = 'K ${rounded.toStringAsFixed(2)}';
+      });
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool initCalled = false;
+        return StatefulBuilder(
+          builder: (sCtx, setD) {
+            if (!initCalled) {
+              initCalled = true;
+              Future.microtask(() => calcFare(setD));
+            }
+            return AlertDialog(
+              backgroundColor: darkSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: flisingOrange, width: 1.5),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.hail, color: flisingOrange),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'STREET HAIL (MANUAL RIDE)',
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('Car (K6.70/km)'),
+                            selected: vehicleType == 'Car',
+                            selectedColor: flisingOrange,
+                            backgroundColor: Colors.black,
+                            labelStyle: TextStyle(color: vehicleType == 'Car' ? Colors.white : Colors.white70, fontSize: 12),
+                            onSelected: (_) {
+                              vehicleType = 'Car';
+                              calcFare(setD);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('Bike (K5.50/km)'),
+                            selected: vehicleType == 'Motorcycle',
+                            selectedColor: flisingOrange,
+                            backgroundColor: Colors.black,
+                            labelStyle: TextStyle(color: vehicleType == 'Motorcycle' ? Colors.white : Colors.white70, fontSize: 12),
+                            onSelected: (_) {
+                              vehicleType = 'Motorcycle';
+                              calcFare(setD);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Select Dropoff Destination:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedDest['name'] as String,
+                          dropdownColor: darkSurface,
+                          isExpanded: true,
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          items: presets.map((p) {
+                            return DropdownMenuItem<String>(
+                              value: p['name'] as String,
+                              child: Text(p['name'] as String),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            final match = presets.firstWhere((e) => e['name'] == val, orElse: () => presets[0]);
+                            selectedDest = match;
+                            calcFare(setD);
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: searchCtrl,
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: 'Or search place in Vanimo...',
+                              hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                              filled: true,
+                              fillColor: Colors.black,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          style: IconButton.styleFrom(backgroundColor: flisingOrange),
+                          icon: const Icon(Icons.search, color: Colors.white, size: 20),
+                          onPressed: () async {
+                            final q = searchCtrl.text.trim();
+                            if (q.isEmpty) return;
+                            setD(() => isCalc = true);
+                            try {
+                              final u = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent("$q, Vanimo, Papua New Guinea")}&format=json&limit=1');
+                              final r = await http.get(u, headers: {'User-Agent': 'FlisingDriverApp/2.3'});
+                              final list = json.decode(r.body) as List;
+                              if (list.isNotEmpty) {
+                                final item = list[0];
+                                final custom = {
+                                  'name': q,
+                                  'lat': double.parse(item['lat'].toString()),
+                                  'lng': double.parse(item['lon'].toString()),
+                                };
+                                presets.insert(0, custom);
+                                selectedDest = custom;
+                                await calcFare(setD);
+                              } else {
+                                setD(() => isCalc = false);
+                              }
+                            } catch (_) {
+                              setD(() => isCalc = false);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: passengerCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Passenger Name or Phone (Optional)',
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                        prefixIcon: const Icon(Icons.person_outline, color: Colors.white54, size: 18),
+                        filled: true,
+                        fillColor: Colors.black,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: flisingOrange.withOpacity(0.5)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            roadKm != null ? 'Road Distance: ${roadKm!.toStringAsFixed(1)} km' : 'Calculating road distance...',
+                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            isCalc ? 'Calculating...' : fareText,
+                            style: TextStyle(color: onlineGreen, fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton(
+                  onPressed: isCalc || isStarting
+                      ? null
+                      : () async {
+                          setD(() => isStarting = true);
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user == null) return;
+                          final db = FirebaseDatabase.instanceFor(
+                            app: Firebase.app(),
+                            databaseURL: 'https://flising-default-rtdb.asia-southeast1.firebasedatabase.app',
+                          ).ref();
+                          final newRef = db.child('rides').push();
+                          final rideId = newRef.key!;
+                          final pName = passengerCtrl.text.trim().isEmpty
+                              ? 'Street-Hail Passenger'
+                              : passengerCtrl.text.trim();
+                          final oLat = _currentLat == 0.0 ? -2.6741 : _currentLat;
+                          final oLng = _currentLng == 0.0 ? 141.3028 : _currentLng;
+                          final dLat = (selectedDest['lat'] as num).toDouble();
+                          final dLng = (selectedDest['lng'] as num).toDouble();
+                          final dName = selectedDest['name'].toString();
+
+                          await newRef.set({
+                            'passengerId': 'street_hail',
+                            'passengerName': pName,
+                            'assignedDriverId': user.uid,
+                            'driverName': user.displayName ?? 'Flising Driver',
+                            'pickupText': 'Street Hail (Current GPS)',
+                            'dropoffText': dName,
+                            'pickupLat': oLat,
+                            'pickupLng': oLng,
+                            'dropoffLat': dLat,
+                            'dropoffLng': dLng,
+                            'fare': fareText,
+                            'vehicleType': vehicleType,
+                            'paymentMethod': 'CASH',
+                            'type': 'street_hail',
+                            'status': 'IN_PROGRESS',
+                            'timestamp': ServerValue.timestamp,
+                          });
+
+                          await db.child('drivers/${user.uid}/currentRideId').set(rideId);
+
+                          if (!mounted) return;
+                          Navigator.pop(ctx);
+                          setState(() {
+                            selectedView = 1;
+                            _activeRideId = rideId;
+                            _activeRideStatus = 'IN_PROGRESS';
+                            _passengerName = pName;
+                            _passengerPhoto = null;
+                            _passengerPickup = 'Street Hail (Current GPS)';
+                            _passengerDropoff = dName;
+                            _isDelivery = false;
+                          });
+                          _listenForCancellations(rideId);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: flisingOrange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('START STREET RIDE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _toggleStatus() async {
     setState(() => _isToggleLoading = true);
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -878,6 +1298,39 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                                     letterSpacing: 1.5),
                               ),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _showRateCardDialog,
+                          icon: Icon(Icons.receipt_long, color: flisingOrange, size: 16),
+                          label: const Text('Rate Card', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: darkSurface,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(color: flisingOrange.withOpacity(0.6)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: _showManualRideDialog,
+                          icon: Icon(Icons.hail, color: onlineGreen, size: 16),
+                          label: const Text('Street Hail', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: darkSurface,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(color: onlineGreen.withOpacity(0.6)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     if (!_isVerified)
                       Container(
