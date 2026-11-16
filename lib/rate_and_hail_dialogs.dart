@@ -83,9 +83,9 @@ Widget _rateItem(IconData icon, String title, String rate) {
   );
 }
 
-Future?> _pickPinOnMap(BuildContext context, double startLat, double startLng) async {
+Future _pickPinOnMap(BuildContext context, double startLat, double startLng) async {
   LatLng picked = LatLng(startLat, startLng);
-  return showDialog>(
+  return showDialog(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (sCtx, setM) => Dialog(

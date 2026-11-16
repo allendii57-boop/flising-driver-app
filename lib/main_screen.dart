@@ -459,7 +459,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (selectedView == 1) Row(children: [
+                      Row(children: [
                         const Icon(Icons.my_location,
                             color: Colors.blueAccent, size: 18),
                         const SizedBox(width: 12),
@@ -473,7 +473,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                           padding: EdgeInsets.symmetric(vertical: 8),
                           child:
                               Divider(color: Colors.white24, height: 1)),
-                      if (selectedView == 1) Row(children: [
+                      Row(children: [
                         Icon(Icons.location_on,
                             color: flisingOrange, size: 18),
                         const SizedBox(width: 12),
@@ -956,7 +956,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (selectedView == 1) Row(
+                    Row(
                       children: [
                         CircleAvatar(
                           radius: 25,
@@ -1038,7 +1038,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-                            child: const if (selectedView == 1) Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.lock_outline, color: Colors.white54, size: 14),
@@ -1058,7 +1058,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                           borderRadius: BorderRadius.circular(12)),
                       child: Column(
                         children: [
-                          if (selectedView == 1) Row(children: [
+                          Row(children: [
                             const Icon(Icons.my_location,
                                 color: Colors.blueAccent, size: 16),
                             const SizedBox(width: 10),
@@ -1073,7 +1073,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                                   EdgeInsets.symmetric(vertical: 6),
                               child: Divider(
                                   color: Colors.white24, height: 1)),
-                          if (selectedView == 1) Row(children: [
+                          Row(children: [
                             Icon(Icons.location_on,
                                 color: flisingOrange, size: 16),
                             const SizedBox(width: 10),
@@ -1096,7 +1096,7 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: flisingOrange.withOpacity(0.5)),
                         ),
-                        child: if (selectedView == 1) Row(children: [
+                        child: Row(children: [
                           const Icon(Icons.inventory_2, color: Colors.white70),
                           const SizedBox(width: 10),
                           Expanded(
