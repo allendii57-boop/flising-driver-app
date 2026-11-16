@@ -154,7 +154,7 @@ class _DriverProfileState extends State<DriverProfile> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 10),
+              const SizedBox(height: 75),
               GestureDetector(
                 onTap: () => _previewImage("Profile Photo", _profilePhotoPath),
                 child: Container(
@@ -274,7 +274,7 @@ class _DriverProfileState extends State<DriverProfile> {
                   children: [
                     const Text("AVAILABLE WALLET BALANCE",
                         style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 75),
                     Text("K ${_availableBalance.toStringAsFixed(2)}",
                         style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
                   ],

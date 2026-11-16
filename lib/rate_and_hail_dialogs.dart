@@ -1,24 +1,40 @@
+import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'quick_places_list.dart';
 
 const Color _orange = Color(0xFFE9692C);
 const Color _dark = Color(0xFF1C1C1E);
 const Color _green = Color(0xFF2E7D32);
+
+class _PinOsmProvider implements TileProvider {
+  static final http.Client _c = http.Client();
+  @override
+  Future<Tile> getTile(int x, int y, int? zoom) async {
+    final z = zoom ?? 15;
+    try {
+      final r = await _c.get(
+        Uri.parse('https://tile.openstreetmap.org/$z/$x/$y.png'),
+        headers: {'User-Agent': 'FlisingRideApp/2.3 (png.flising.app)'},
+      );
+      if (r.statusCode == 200) return Tile(256, 256, r.bodyBytes);
+    } catch (_) {}
+    return TileProvider.noTile;
+  }
+}
 
 void showFlisingRateCard(BuildContext context) {
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: _dark,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: _orange, width: 1.5),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _orange, width: 1.5)),
       title: const Row(
         children: [
           Icon(Icons.receipt_long, color: _orange),
@@ -67,20 +83,68 @@ Widget _rateItem(IconData icon, String title, String rate) {
   );
 }
 
+Future?> _pickPinOnMap(BuildContext context, double startLat, double startLng) async {
+  LatLng picked = LatLng(startLat, startLng);
+  return showDialog>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (sCtx, setM) => Dialog(
+        backgroundColor: _dark,
+        insetPadding: const EdgeInsets.all(14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _orange)),
+        child: SizedBox(
+          height: 440,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('Tap Map to Pin Dropoff', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+              Expanded(
+                child: GoogleMap(
+                  initialCameraPosition: CameraPosition(target: picked, zoom: 15.5),
+                  mapType: MapType.none,
+                  tileOverlays: {
+                    TileOverlay(tileOverlayId: const TileOverlayId('osm_pin'), tileProvider: _PinOsmProvider()),
+                  },
+                  markers: {
+                    Marker(markerId: const MarkerId('drop'), position: picked),
+                  },
+                  onTap: (pos) => setM(() => picked = pos),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: _orange),
+                      onPressed: () => Navigator.pop(ctx, {
+                        'name': 'Pinned (${picked.latitude.toStringAsFixed(4)}, ${picked.longitude.toStringAsFixed(4)})',
+                        'lat': picked.latitude,
+                        'lng': picked.longitude,
+                      }),
+                      child: const Text('USE PIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 void showFlisingStreetHail({
   required BuildContext context,
   required void Function(String rideId, String pName, String dropName) onRideStarted,
 }) {
-  final presets = [
-    {'name': 'Vanimo Main Market', 'lat': -2.6775, 'lng': 141.3018},
-    {'name': 'BSP Bank Vanimo', 'lat': -2.6738, 'lng': 141.3029},
-    {'name': 'Vanimo Airport', 'lat': -2.6917, 'lng': 141.3022},
-    {'name': 'Vanimo General Hospital', 'lat': -2.6719, 'lng': 141.3061},
-    {'name': 'Dalai / Wesan', 'lat': -2.6852, 'lng': 141.2965},
-    {'name': 'Greenhills', 'lat': -2.6995, 'lng': 141.2980},
-    {'name': 'Lido Village', 'lat': -2.6625, 'lng': 141.2810},
-    {'name': 'Wutung Border Post', 'lat': -2.6033, 'lng': 141.0019},
-  ];
+  final presets = List.of(vanimoLocations);
   final passengerCtrl = TextEditingController();
   String vehicle = 'Car';
   Map<String, dynamic> dest = presets[0];
@@ -129,9 +193,26 @@ void showFlisingStreetHail({
                   value: dest['name'] as String,
                   dropdownColor: _dark,
                   isExpanded: true,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
                   items: presets.map((p) => DropdownMenuItem<String>(value: p['name'] as String, child: Text(p['name'] as String))).toList(),
                   onChanged: (v) { dest = presets.firstWhere((e) => e['name'] == v); calc(setD); },
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: _orange)),
+                    icon: const Icon(Icons.push_pin, color: _orange, size: 16),
+                    label: const Text('Pin Dropoff on Map', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    onPressed: () async {
+                      final pinned = await _pickPinOnMap(context, (dest['lat'] as num).toDouble(), (dest['lng'] as num).toDouble());
+                      if (pinned != null) {
+                        presets.insert(0, pinned);
+                        dest = pinned;
+                        calc(setD);
+                      }
+                    },
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
