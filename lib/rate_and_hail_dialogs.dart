@@ -71,7 +71,7 @@ void showFlisingStreetHail({
   required BuildContext context,
   required void Function(String rideId, String pName, String dropName) onRideStarted,
 }) {
-  final presets = >[
+  final presets = [
     {'name': 'Vanimo Main Market', 'lat': -2.6775, 'lng': 141.3018},
     {'name': 'BSP Bank Vanimo', 'lat': -2.6738, 'lng': 141.3029},
     {'name': 'Vanimo Airport', 'lat': -2.6917, 'lng': 141.3022},
@@ -130,7 +130,7 @@ void showFlisingStreetHail({
                   dropdownColor: _dark,
                   isExpanded: true,
                   style: const TextStyle(color: Colors.white),
-                  items: presets.map((p) => DropdownMenuItem(value: p['name'] as String, child: Text(p['name'] as String))).toList(),
+                  items: presets.map((p) => DropdownMenuItem<String>(value: p['name'] as String, child: Text(p['name'] as String))).toList(),
                   onChanged: (v) { dest = presets.firstWhere((e) => e['name'] == v); calc(setD); },
                 ),
                 const SizedBox(height: 8),
