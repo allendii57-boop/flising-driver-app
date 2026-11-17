@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate launcher icons
-        run: echo "Using pre-fitted mipmaps"
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin && rsvg-convert -w 1024 -h 1024 assets/images/flising-driver-appicon.svg -o assets/images/app_icon.png && rm -rf android/app/src/main/res/mipmap-anydpi-v26 && dart run flutter_launcher_icons
 
       - name: Build APK
         run: flutter build apk --release --split-per-abi
