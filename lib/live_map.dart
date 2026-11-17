@@ -190,9 +190,7 @@ class _LiveMapState extends State<LiveMap> {
           'heading': pos.heading,
         });
       }
-      if (_activeTarget == null) {
-        _mapController?.animateCamera(CameraUpdate.newLatLng(here));
-      }
+      _mapController?.animateCamera(CameraUpdate.newLatLng(here));
     });
   }
 
