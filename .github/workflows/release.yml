@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate launcher icons
-        run: dart run flutter_launcher_icons
+        run: echo "Using pre-fitted mipmaps"
 
       - name: Build APK
         run: flutter build apk --release --split-per-abi
