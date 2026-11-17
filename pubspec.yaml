@@ -42,10 +42,21 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_launcher_icons:
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/flising_logo.png
+    - assets/images/flising_new_logo.jpg
+    - assets/images/map_marker.png
+    - assets/images/app_icon.png
+    - assets/images/splash_logo.png
+    - assets/images/flising_mark.png
+
+flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false
   image_path: "assets/images/app_icon.png"
   adaptive_icon_background: "#0B1017"
   adaptive_icon_foreground: "assets/images/app_icon.png"
-  min_sdk_android: 21
