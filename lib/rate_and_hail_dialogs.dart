@@ -47,12 +47,12 @@ void showFlisingRateCard(BuildContext context) {
         children: [
           _rateItem(Icons.directions_car, 'Car Ride', 'K 6.70 / km'),
           const SizedBox(height: 8),
-          _rateItem(Icons.two_wheeler, 'Motorcycle', 'K 5.50 / km'),
+          _rateItem(Icons.two_wheeler, 'Motorcycle', 'K 6.00 / km'),
           const SizedBox(height: 8),
-          _rateItem(Icons.inventory_2, 'Parcel Delivery', 'K 5.00 / km'),
+          _rateItem(Icons.inventory_2, 'Parcel Delivery', 'K 6.00 / km'),
           const SizedBox(height: 12),
           const Text(
-            '• Calculated by exact OSRM road distance.\n• Rounded to nearest 10 toea (K 0.10).\n• Flising Platform Share: 10%.',
+            '• Calculated by exact OSRM road distance.\n• Rounded down to nearest K 1.00.\n• Flising Platform Share: 10%.',
             style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
         ],
@@ -164,7 +164,7 @@ void showFlisingStreetHail({
       final d = json.decode(r.body);
       if (d['code'] == 'Ok') km = ((d['routes'][0]['distance'] as num).toDouble() / 1000.0).clamp(0.5, 200.0);
     } catch (_) {}
-    final total = ((km * (vehicle == 'Car' ? 6.70 : 5.50)) * 10).round() / 10.0;
+    final total = (km * (vehicle == 'Car' ? 6.70 : 6.00)).floorToDouble().clamp(1.0, 99999.0);
     setD(() { busy = false; fare = 'K ' + total.toStringAsFixed(2); });
   }
 
