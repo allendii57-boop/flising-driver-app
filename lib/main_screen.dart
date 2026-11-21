@@ -892,7 +892,17 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton.icon(
-                          onPressed: () => showFlisingStreetHail(
+                          onPressed: () {
+                            if (!_isOnline) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please go ONLINE first to start a Street Hail.'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                              return;
+                            }
+                            showFlisingStreetHail(
                             context: context,
                             onRideStarted: (rId, pName, dName) {
                               setState(() {
@@ -906,8 +916,9 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                                 _isDelivery = false;
                               });
                               _listenForCancellations(rId);
-                            },
-                          ),
+                              },
+                            );
+                          },
                           icon: Icon(Icons.hail, color: onlineGreen, size: 16),
                           label: const Text('Street Hail', style: TextStyle(color: Colors.white, fontSize: 12)),
                           style: ElevatedButton.styleFrom(backgroundColor: darkSurface),
@@ -1119,16 +1130,19 @@ class _DriverMainScreenState extends State<DriverMainScreen> {
                           ),
                         ]),
                       ),
-                    if (_activeRideStatus == 'ACCEPTED')
+                    if (_activeRideStatus == 'ACCEPTED' || _activeRideStatus == 'IN_PROGRESS')
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            onPressed: () => _navigateToPickup(_activeRideId!),
+                            onPressed: () => _activeRideStatus == 'ACCEPTED'
+                                ? _navigateToPickup(_activeRideId!)
+                                : _navigateToDropoff(_activeRideId!),
                             icon: const Icon(Icons.navigation, color: Colors.blueAccent),
-                            label: const Text('NAVIGATE TO PICKUP',
-                                style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                            label: Text(
+                                _activeRideStatus == 'ACCEPTED' ? 'NAVIGATE TO PICKUP' : 'NAVIGATE TO DROPOFF',
+                                style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Colors.blueAccent),
                               padding: const EdgeInsets.symmetric(vertical: 14),
